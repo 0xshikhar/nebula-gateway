@@ -2,13 +2,6 @@
 pragma solidity ^0.8.24;
 
 interface ITrustVerifier {
-    struct Trust_score {
-        uint256 score;
-        uint256 band;
-        uint256 timestamp;
-        uint256 expiry;
-    }
-
     event TrustScoreUpdated(address indexed user, uint256 score, uint256 band);
 
     function updateTrustScore(address user, uint256 score, uint256 band) external;
@@ -21,15 +14,6 @@ interface ITrustVerifier {
 }
 
 interface ITrustPolicy {
-    struct Policy {
-        string name;
-        uint256 minTrustScore;
-        uint256 minBand;
-        bool requireHuman;
-        bool requireCredential;
-        bool active;
-    }
-
     event PolicyCreated(bytes32 indexed policyId, string name, uint256 minScore, uint256 minBand);
     event PolicyUpdated(bytes32 indexed policyId);
     event PolicyDeleted(bytes32 indexed policyId);
@@ -82,13 +66,6 @@ interface ITrustPolicy {
 }
 
 interface ITrustAccessControl {
-    error AccessDenied(address user, uint256 required, uint256 actual);
-    error PolicyNotConfigured();
-    error TrustVerificationFailed(address user, string reason);
-
-    modifier onlyTrusted(address user);
-    modifier onlyTrustedWithPolicy(address user, bytes32 policyId);
-
     function setVerifier(address _verifier) external;
     function setPolicy(address _policy) external;
 }

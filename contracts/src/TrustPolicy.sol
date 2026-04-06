@@ -29,6 +29,8 @@ contract TrustPolicy is Ownable {
     error InvalidPolicyConfig();
     error UserNotEligible(address user, string reason);
 
+    constructor(address _owner) Ownable(_owner) {}
+
     function createPolicy(
         bytes32 policyId,
         string memory name,
@@ -140,7 +142,7 @@ contract TrustPolicy is Ownable {
             canCheck = false;
         }
 
-        bytes32[] memory finalReasons = new string[](reasonCount);
+        string[] memory finalReasons = new string[](reasonCount);
         for (uint256 i = 0; i < reasonCount; i++) {
             finalReasons[i] = _reasons[i];
         }

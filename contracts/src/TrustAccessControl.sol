@@ -11,16 +11,9 @@ abstract contract TrustAccessControl is Ownable {
     error PolicyNotConfigured();
     error TrustVerificationFailed(address user, string reason);
 
-    modifier onlyTrusted(address user) {
-        if (address(verifier) == address(0)) revert PolicyNotConfigured();
-        
-        if (!verifier.verify(user, getRequiredBand())) {
-            revert AccessDenied(user, getRequiredBand(), verifier.getTrustScore(user).score);
-        }
-        _;
-    }
+    constructor(address _owner) Ownable(_owner) {}
 
-    modifier onlyTrustedWithPolicy(address user, bytes32 policyId) {
+    modifier onlyTrusted(address user) {
         if (address(verifier) == address(0)) revert PolicyNotConfigured();
         
         (uint256 score, uint256 band, bool isValid) = verifier.getTrustScore(user);
@@ -29,8 +22,8 @@ abstract contract TrustAccessControl is Ownable {
             revert TrustVerificationFailed(user, "Trust score expired");
         }
         
-        if (!policy.evaluatePolicy(user, policyId, score, band, false, false).allowed) {
-            revert TrustVerificationFailed(user, "Policy requirements not met");
+        if (band < getRequiredBand()) {
+            revert AccessDenied(user, getRequiredBand(), band);
         }
         _;
     }
@@ -68,6 +61,8 @@ contract TrustVault is TrustAccessControl {
     event Deposit(address indexed user, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
 
+    constructor(address _owner) TrustAccessControl(_owner) {}
+
     function getRequiredBand() internal view override returns (uint256) {
         return 2;  // Minimum band 2 for vault access
     }
@@ -91,10 +86,12 @@ contract TrustVault is TrustAccessControl {
 
 contract TrustPool is TrustAccessControl {
     mapping(address => bool) public hasJoined;
-    uint256 public totalDeposits;
+    uint256 public totalMembers;
     
-    event UserJoined(address indexed user, uint256 deposit);
+    event UserJoined(address indexed user);
     event UserLeft(address indexed user);
+
+    constructor(address _owner) TrustAccessControl(_owner) {}
 
     function getRequiredBand() internal view override returns (uint256) {
         return 3;  // Minimum band 3 for pool access
@@ -103,14 +100,14 @@ contract TrustPool is TrustAccessControl {
     function join() external onlyTrusted(msg.sender) {
         require(!hasJoined[msg.sender], "Already joined");
         hasJoined[msg.sender] = true;
-        totalDeposits++;
-        emit UserJoined(msg.sender, totalDeposits);
+        totalMembers++;
+        emit UserJoined(msg.sender);
     }
 
     function leave() external {
         require(hasJoined[msg.sender], "Not a member");
         hasJoined[msg.sender] = false;
-        totalDeposits--;
+        totalMembers--;
         emit UserLeft(msg.sender);
     }
 
@@ -123,7 +120,9 @@ contract TrustAirdrop is TrustAccessControl {
     mapping(address => bool) public claimed;
     uint256 public totalClaimed;
     
-    event Claimed(address indexed user, uint256 amount);
+    event Claimed(address indexed user);
+
+    constructor(address _owner) TrustAccessControl(_owner) {}
 
     function getRequiredBand() internal view override returns (uint256) {
         return 1;  // Minimum band 1 for airdrop
@@ -133,7 +132,7 @@ contract TrustAirdrop is TrustAccessControl {
         require(!claimed[msg.sender], "Already claimed");
         claimed[msg.sender] = true;
         totalClaimed++;
-        emit Claimed(msg.sender, totalClaimed);
+        emit Claimed(msg.sender);
     }
 
     function hasClaimed(address user) external view returns (bool) {

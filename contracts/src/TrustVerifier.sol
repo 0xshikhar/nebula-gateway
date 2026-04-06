@@ -1,25 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-interface ITrustVerifier {
-    error InvalidProof();
-    error PolicyNotFound();
-    error ExpiredTrustScore();
-    error InsufficientTrust(address user, uint256 required, uint256 actual);
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-    event TrustVerified(address indexed user, uint256 score, uint256 band, uint256 timestamp);
-    event TrustRejected(address indexed user, string reason, uint256 timestamp);
-}
-
-contract TrustVerifier is ITrustVerifier {
-    struct Trust_score {
+contract TrustVerifier is Ownable {
+    struct TrustScore {
         uint256 score;
         uint256 band;
         uint256 timestamp;
         uint256 expiry;
     }
 
-    mapping(address => Trust_score) public trustScores;
+    mapping(address => TrustScore) public trustScores;
 
     uint256 public constant SCORE_MAX = 100;
     uint256 public constant BAND_THRESHOLD_1 = 20;
@@ -31,17 +23,20 @@ contract TrustVerifier is ITrustVerifier {
 
     mapping(bytes32 => bool) public usedNullifiers;
 
+    error InvalidProof();
+    error PolicyNotFound();
+    error ExpiredTrustScore();
+    error InsufficientTrust(address user, uint256 required, uint256 actual);
+
     event TrustScoreUpdated(address indexed user, uint256 score, uint256 band);
 
-    function updateTrustScore(
-        address user,
-        uint256 score,
-        uint256 band
-    ) external {
+    constructor(address _owner) Ownable(_owner) {}
+
+    function updateTrustScore(address user, uint256 score, uint256 band) external onlyOwner {
         require(score <= SCORE_MAX, "Score too high");
         require(band >= 1 && band <= 5, "Invalid band");
 
-        trustScores[user] = Trust_score({
+        trustScores[user] = TrustScore({
             score: score,
             band: band,
             timestamp: block.timestamp,
@@ -52,7 +47,7 @@ contract TrustVerifier is ITrustVerifier {
     }
 
     function verify(address user, uint256 minBand) external view returns (bool) {
-        Trust_score memory ts = trustScores[user];
+        TrustScore memory ts = trustScores[user];
 
         if (block.timestamp > ts.expiry) {
             revert ExpiredTrustScore();
@@ -66,12 +61,12 @@ contract TrustVerifier is ITrustVerifier {
     }
 
     function getTrustScore(address user) external view returns (uint256 score, uint256 band, bool isValid) {
-        Trust_score memory ts = trustScores[user];
+        TrustScore memory ts = trustScores[user];
         return (ts.score, ts.band, block.timestamp <= ts.expiry);
     }
 
     function checkTrust(address user, uint256 minScore) external view returns (bool allowed, uint256 actualScore, uint256 actualBand) {
-        Trust_score memory ts = trustScores[user];
+        TrustScore memory ts = trustScores[user];
         
         if (block.timestamp > ts.expiry || ts.score < minScore) {
             return (false, ts.score, ts.band);
@@ -88,7 +83,7 @@ contract TrustVerifier is ITrustVerifier {
         return 0;
     }
 
-    function useNullifier(bytes32 nullifier) external {
+    function useNullifier(bytes32 nullifier) external onlyOwner {
         require(!usedNullifiers[nullifier], "Nullifier already used");
         usedNullifiers[nullifier] = true;
     }
