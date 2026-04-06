@@ -53,6 +53,17 @@ module.exports = {
     filecoinMainnet: {
       url: "https://api.node.glif.io",
       accounts: [PRIVATE_KEY]
+    },
+    // HashKey networks
+    hashkeyTestnet: {
+      url: "https://testnet.hsk.xyz",
+      chainId: 133,
+      accounts: [PRIVATE_KEY]
+    },
+    hashkeyMainnet: {
+      url: "https://mainnet.hsk.xyz",
+      chainId: 177,
+      accounts: [PRIVATE_KEY]
     }
   },
   paths: {
