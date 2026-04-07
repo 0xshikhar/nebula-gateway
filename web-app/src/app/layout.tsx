@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
 
 import { ThemeProvider } from "@/components/theme-provider"
 import Navbar from "@/components/navigation/navbar"
@@ -7,8 +6,6 @@ import { Providers } from "@/app/providers"
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/config/site"
 import "./globals.css"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url.base),
@@ -60,7 +57,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-[#050816] text-white antialiased", inter.className)}>
+      <body className={cn("min-h-screen bg-[#050816] text-white antialiased")}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <Providers>
             <Navbar />

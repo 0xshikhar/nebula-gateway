@@ -1,14 +1,36 @@
-import { PrismaClient } from '@prisma/client/edge'
-import { withAccelerate } from '@prisma/extension-accelerate'
+import { PrismaClient } from "@prisma/client/edge"
+import { withAccelerate } from "@prisma/extension-accelerate"
 
-// PrismaClient is attached to the `global` object in development to prevent
-// exhausting your database connection limit.
-const globalForPrisma = global as unknown as { prisma: PrismaClient }
+type PrismaClientWithExtensions = ReturnType<PrismaClient["$extends"]>
 
-export const prisma =
-    globalForPrisma.prisma ||
-    new PrismaClient({
-        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-    }).$extends(withAccelerate())
+declare global {
+  // eslint-disable-next-line no-var
+  var prisma: PrismaClientWithExtensions | undefined
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma 
+function createPrismaClient() {
+  return new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+  }).$extends(withAccelerate())
+}
+
+function getPrismaClient() {
+  if (!global.prisma) {
+    global.prisma = createPrismaClient()
+  }
+
+  return global.prisma
+}
+
+export const prisma = new Proxy({} as PrismaClientWithExtensions, {
+  get(_target, prop) {
+    const client = getPrismaClient()
+    const value = client[prop as keyof PrismaClientWithExtensions]
+
+    if (typeof value === "function") {
+      return value.bind(client)
+    }
+
+    return value
+  },
+}) as PrismaClientWithExtensions

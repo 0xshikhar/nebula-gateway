@@ -50,7 +50,10 @@ import {
   nebulaPolicyRegistryAddress,
   nebulaTrustGateAbi,
   nebulaTrustGateAddress,
+  nebulaTrustVerifierAddress,
   trustDecisionLabels,
+  trustPolicyAbi,
+  trustVerifierAbi,
 } from "@/lib/nebula-contracts"
 import { hashkeyTestnet } from "@/lib/customChain"
 
@@ -110,6 +113,17 @@ export function NebulaDashboard() {
     [state.protocol],
   )
 
+  const selectedPolicyId = useMemo(() => {
+    const policyKeys: Record<TrustProtocol, string> = {
+      vault: "lending-pool-v1",
+      pool: "premium-pool-v1",
+      rewards: "rewards-access-v1",
+      airdrop: "airdrop-2026",
+    }
+
+    return keccak256(stringToHex(policyKeys[state.protocol]))
+  }, [state.protocol])
+
   const preview = useMemo(() => {
     return evaluateTrust({
       ...state,
@@ -143,6 +157,26 @@ export function NebulaDashboard() {
     functionName: "decisionCount",
     query: {
       enabled: hasNebulaTrustGate,
+    },
+  })
+
+  const trustScoreRead = useReadContract({
+    address: nebulaTrustVerifierAddress,
+    abi: trustVerifierAbi,
+    functionName: "getTrustScore",
+    args: [address ?? "0x0000000000000000000000000000000000000000"],
+    query: {
+      enabled: Boolean(address) && nebulaTrustVerifierAddress !== "0x0000000000000000000000000000000000000000",
+    },
+  })
+
+  const policyRead = useReadContract({
+    address: nebulaPolicyRegistryAddress,
+    abi: trustPolicyAbi,
+    functionName: "getPolicy",
+    args: [selectedPolicyId],
+    query: {
+      enabled: nebulaPolicyRegistryAddress !== "0x0000000000000000000000000000000000000000",
     },
   })
 
@@ -274,7 +308,7 @@ export function NebulaDashboard() {
                   Chain ID: {hashkeyTestnet.id}
                 </Badge>
                 <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
-                  Trust contract: {hasNebulaTrustGate ? "configured" : "unset"}
+                  Trust gateway: {hasNebulaTrustGate ? "configured" : "unset"}
                 </Badge>
               </div>
             </div>
@@ -393,9 +427,10 @@ export function NebulaDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Contract address</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Gateway contract address</p>
                 <p className="mt-2 font-mono text-sm">{nebulaTrustGateAddress}</p>
                 <p className="mt-1 text-xs text-slate-500">Policy registry: {nebulaPolicyRegistryAddress}</p>
+                <p className="mt-1 text-xs text-slate-500">Verifier: {nebulaTrustVerifierAddress}</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -413,6 +448,21 @@ export function NebulaDashboard() {
                 </div>
               </div>
 
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">On-chain trust score</p>
+                  <p className="mt-2 text-lg font-semibold text-white">
+                    {trustScoreRead.data ? `${trustScoreRead.data[0].toString()} / band ${trustScoreRead.data[1].toString()}` : "not loaded"}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Selected policy</p>
+                  <p className="mt-2 text-lg font-semibold text-white">
+                    {policyRead.data ? policyRead.data[0] : "not loaded"}
+                  </p>
+                </div>
+              </div>
+
               <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Latest on-chain decision</p>
                 {lastDecisionTuple.data ? (
@@ -423,7 +473,7 @@ export function NebulaDashboard() {
                     <p>proofId: {lastDecisionTuple.data[3]}</p>
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-slate-400">No decision loaded yet or contract not configured.</p>
+                  <p className="mt-3 text-sm text-slate-400">No decision loaded yet or gateway not configured.</p>
                 )}
               </div>
 
