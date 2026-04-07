@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { SiweMessage } from "siwe"
 
 import { evaluateTrust, type TrustInput } from "@/lib/nebula-trust"
+import {
+  persistAuditEvent,
+  persistProofEvent,
+  persistVerificationEvent,
+} from "@/lib/trust-audit"
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,6 +68,49 @@ export async function POST(request: NextRequest) {
       proofId: body.proofId,
     })
 
+    const proofEvent = await persistProofEvent({
+      wallet: body.wallet,
+      protocol: body.protocol,
+      proofId: body.proofId ?? null,
+      proofLibrary: result.proofLibrary,
+      issuedAt: proof.issuedAt,
+      verifiedAt: new Date().toISOString(),
+      status: result.decision === "allow" ? "verified" : "rejected",
+      metadata: {
+        proofMethod: "browser-signature",
+        signatureVerified: true,
+        walletMatch: true,
+      },
+    })
+
+    const verificationEvent = await persistVerificationEvent({
+      wallet: body.wallet,
+      protocol: body.protocol,
+      decision: result.decision,
+      trustScore: result.trustScore,
+      bandLabel: result.bandLabel,
+      policyVersion: result.policyVersion,
+      proofLibrary: result.proofLibrary,
+      proofId: body.proofId ?? null,
+      reasons: result.reasons,
+      proofEventId: proofEvent.record?.id ?? null,
+    })
+
+    const auditEvent = await persistAuditEvent({
+      eventType: "trust.verify",
+      wallet: body.wallet,
+      protocol: body.protocol,
+      payload: {
+        decision: result.decision,
+        trustScore: result.trustScore,
+        bandLabel: result.bandLabel,
+        policyVersion: result.policyVersion,
+        proofId: body.proofId ?? null,
+        proofMethod: "browser-signature",
+      },
+      verificationEventId: verificationEvent.record?.id ?? null,
+    })
+
     return NextResponse.json({
       ...result,
       wallet: body.wallet,
@@ -70,6 +118,7 @@ export async function POST(request: NextRequest) {
       proofId: body.proofId ?? null,
       proofMethod: "browser-signature",
       verifiedAt: new Date().toISOString(),
+      auditStored: Boolean(verificationEvent.record || auditEvent.record),
     })
   } catch (error) {
     return NextResponse.json(

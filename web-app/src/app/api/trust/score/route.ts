@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { evaluateTrust, type TrustInput } from "@/lib/nebula-trust"
+import {
+  persistAuditEvent,
+  persistPolicyVersionSnapshot,
+  persistTrustScoreSnapshot,
+} from "@/lib/trust-audit"
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as Partial<TrustInput>
@@ -24,6 +29,40 @@ export async function POST(request: NextRequest) {
     proofId: body.proofId,
   })
 
+  const scoreEvent = await persistTrustScoreSnapshot({
+    wallet: body.wallet,
+    protocol: body.protocol,
+    score: result.trustScore,
+    bandLabel: result.bandLabel,
+    signalSummary: {
+      humanProof: Boolean(body.humanProof),
+      cohortMember: Boolean(body.cohortMember),
+      credentialVerified: Boolean(body.credentialVerified),
+      expired: Boolean(body.expired),
+      proofLibrary: result.proofLibrary,
+    },
+  })
+
+  const policyEvent = await persistPolicyVersionSnapshot({
+    version: result.policyVersion,
+    source: "api-trust-score",
+    protocol: body.protocol,
+    decisionMode: result.decision,
+  })
+
+  const auditEvent = await persistAuditEvent({
+    eventType: "trust.score",
+    wallet: body.wallet,
+    protocol: body.protocol,
+    payload: {
+      trustScore: result.trustScore,
+      bandLabel: result.bandLabel,
+      decision: result.decision,
+      policyVersion: result.policyVersion,
+    },
+    policyVersionId: policyEvent.record?.id ?? null,
+  })
+
   return NextResponse.json({
     wallet: body.wallet,
     protocol: body.protocol,
@@ -32,5 +71,6 @@ export async function POST(request: NextRequest) {
     proofLibrary: result.proofLibrary,
     policyVersion: result.policyVersion,
     summary: result.summary,
+    auditStored: Boolean(scoreEvent.record || auditEvent.record),
   })
 }
