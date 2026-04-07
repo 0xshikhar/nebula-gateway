@@ -12,6 +12,8 @@ describe("TrustAccessControl", function () {
   let user2;
 
   const LENDING_POOL_POLICY_ID = ethers.keccak256(ethers.toUtf8Bytes("lending-pool-v1"));
+  const PREMIUM_POOL_POLICY_ID = ethers.keccak256(ethers.toUtf8Bytes("premium-pool-v1"));
+  const AIRDROP_POLICY_ID = ethers.keccak256(ethers.toUtf8Bytes("airdrop-2026"));
 
   beforeEach(async function () {
     [owner, user1, user2] = await ethers.getSigners();
@@ -32,6 +34,24 @@ describe("TrustAccessControl", function () {
       "Lending Pool Access",
       50,
       2,
+      false,
+      false
+    );
+
+    await trustPolicy.createPolicy(
+      PREMIUM_POOL_POLICY_ID,
+      "Premium Pool Access",
+      75,
+      3,
+      false,
+      false
+    );
+
+    await trustPolicy.createPolicy(
+      AIRDROP_POLICY_ID,
+      "Airdrop Access",
+      25,
+      1,
       false,
       false
     );

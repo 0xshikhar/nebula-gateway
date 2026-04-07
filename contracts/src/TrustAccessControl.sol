@@ -10,25 +10,46 @@ abstract contract TrustAccessControl is Ownable {
     error AccessDenied(address user, uint256 required, uint256 actual);
     error PolicyNotConfigured();
     error TrustVerificationFailed(address user, string reason);
+    error PolicyEvaluationFailed(address user, string reason);
 
     constructor(address _owner) Ownable(_owner) {}
 
     modifier onlyTrusted(address user) {
         if (address(verifier) == address(0)) revert PolicyNotConfigured();
+        if (address(policy) == address(0)) revert PolicyNotConfigured();
         
         (uint256 score, uint256 band, bool isValid) = verifier.getTrustScore(user);
         
         if (!isValid) {
             revert TrustVerificationFailed(user, "Trust score expired");
         }
-        
-        if (band < getRequiredBand()) {
-            revert AccessDenied(user, getRequiredBand(), band);
+
+        bytes32 policyId = getPolicyId();
+        (, uint256 minTrustScore, uint256 minBand, bool requireHuman, bool requireCredential, bool active) = policy.getPolicy(policyId);
+        if (!active) revert PolicyNotConfigured();
+
+        (bool allowed, string[] memory reasons) = policy.evaluatePolicy(
+            user,
+            policyId,
+            score,
+            band,
+            false,
+            false
+        );
+
+        if (!allowed) {
+            if (score < minTrustScore || band < minBand) {
+                revert AccessDenied(user, minBand, band);
+            }
+
+            string memory policyReason = reasons.length > 0 ? reasons[0] : "Policy requirements not met";
+            revert PolicyEvaluationFailed(user, policyReason);
         }
         _;
     }
 
     function getRequiredBand() internal view virtual returns (uint256);
+    function getPolicyId() internal view virtual returns (bytes32);
 
     function setVerifier(address _verifier) external onlyOwner {
         verifier = ITrustVerifier(_verifier);
@@ -45,6 +66,15 @@ interface ITrustVerifier {
 }
 
 interface ITrustPolicy {
+    function getPolicy(bytes32 policyId) external view returns (
+        string memory name,
+        uint256 minTrustScore,
+        uint256 minBand,
+        bool requireHuman,
+        bool requireCredential,
+        bool active
+    );
+
     function evaluatePolicy(
         address user,
         bytes32 policyId,
@@ -65,6 +95,10 @@ contract TrustVault is TrustAccessControl {
 
     function getRequiredBand() internal view override returns (uint256) {
         return 2;  // Minimum band 2 for vault access
+    }
+
+    function getPolicyId() internal pure override returns (bytes32) {
+        return keccak256(bytes("lending-pool-v1"));
     }
 
     function deposit() external payable onlyTrusted(msg.sender) {
@@ -97,6 +131,10 @@ contract TrustPool is TrustAccessControl {
         return 3;  // Minimum band 3 for pool access
     }
 
+    function getPolicyId() internal pure override returns (bytes32) {
+        return keccak256(bytes("premium-pool-v1"));
+    }
+
     function join() external onlyTrusted(msg.sender) {
         require(!hasJoined[msg.sender], "Already joined");
         hasJoined[msg.sender] = true;
@@ -126,6 +164,10 @@ contract TrustAirdrop is TrustAccessControl {
 
     function getRequiredBand() internal view override returns (uint256) {
         return 1;  // Minimum band 1 for airdrop
+    }
+
+    function getPolicyId() internal pure override returns (bytes32) {
+        return keccak256(bytes("airdrop-2026"));
     }
 
     function claim() external onlyTrusted(msg.sender) {
