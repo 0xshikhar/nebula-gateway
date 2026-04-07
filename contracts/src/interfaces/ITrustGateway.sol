@@ -86,3 +86,32 @@ interface ITrustAirdrop {
     function claim() external;
     function hasClaimed(address user) external view returns (bool);
 }
+
+interface ITrustGateway {
+    event DecisionRecorded(
+        address indexed wallet,
+        uint8 decision,
+        uint256 trustScore,
+        bytes32 indexed proofId,
+        string policyVersion
+    );
+
+    event PolicyPublished(string policyVersion);
+
+    function policyVersion() external view returns (string memory);
+    function decisionCount() external view returns (uint256);
+    function lastDecision(address wallet) external view returns (
+        uint8 decision,
+        uint256 trustScore,
+        string memory policyVersion,
+        bytes32 proofId
+    );
+    function recordDecision(
+        address wallet,
+        uint8 decision,
+        uint256 trustScore,
+        bytes32 proofId,
+        string calldata policyVersion
+    ) external;
+    function publishPolicy(string calldata policyVersion) external;
+}

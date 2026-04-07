@@ -8,6 +8,7 @@ Smart contracts for Nebula Trust Gateway — protocol-level trust verification o
 |----------|---------|
 | `TrustVerifier.sol` | Stores and verifies trust scores for wallets |
 | `TrustPolicy.sol` | Manages trust policies for protocols |
+| `TrustGateway.sol` | Records trust decisions and policy versions for the app |
 | `TrustAccessControl.sol` | Access control modifiers for DeFi protocols |
 | `interfaces/ITrustGateway.sol` | Shared interfaces |
 
@@ -109,7 +110,7 @@ contract MyVault is TrustAccessControl {
 npx hardhat compile
 
 # Deploy
-npx hardhat run scripts/deploy.ts --network hashkeyTestnet
+npx hardhat run scripts/deploy.js --network hashkeyTestnet
 ```
 
 ### Hardhat Config

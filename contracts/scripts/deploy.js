@@ -39,6 +39,15 @@ async function main() {
   deploymentInfo.contracts.TrustPolicy = trustPolicyAddress;
   console.log("TrustPolicy deployed to:", trustPolicyAddress);
 
+  // Deploy TrustGateway
+  console.log("Deploying TrustGateway...");
+  const TrustGateway = await ethers.getContractFactory("TrustGateway");
+  const trustGateway = await TrustGateway.deploy();
+  await trustGateway.waitForDeployment();
+  const trustGatewayAddress = await trustGateway.getAddress();
+  deploymentInfo.contracts.TrustGateway = trustGatewayAddress;
+  console.log("TrustGateway deployed to:", trustGatewayAddress);
+
   // Deploy TrustVault
   console.log("Deploying TrustVault...");
   const TrustVault = await ethers.getContractFactory("TrustVault");
@@ -93,6 +102,10 @@ async function main() {
   await trustAirdrop.setPolicy(trustPolicyAddress);
   console.log("TrustAirdrop configured with TrustVerifier and TrustPolicy");
 
+  console.log("Publishing initial gateway policy version...");
+  await trustGateway.publishPolicy("nebula-trust-v1");
+  console.log("TrustGateway initialized with nebula-trust-v1");
+
   // Create default policies
   console.log("Creating default policies...");
   const lendingPoolPolicyId = keccak256("lending-pool-v1");
@@ -143,11 +156,11 @@ async function main() {
   console.log(`Deployment info written to ${deploymentDir}/${networkName}.json`);
 
   // Also write to a convenience file
-  fs.writeFileSync(
-    "../web-app/src/deployments/latest.json",
-    JSON.stringify(deploymentInfo, null, 2)
-  );
-  console.log(`Deployment info also written to ${deploymentDir}/latest.json`);
+  // fs.writeFileSync(
+  //   "../web-app/src/deployments/latest.json",
+  //   JSON.stringify(deploymentInfo, null, 2)
+  // );
+  // console.log(`Deployment info also written to ${deploymentDir}/latest.json`);
 
   // Helper function
   function keccak256(text) {
