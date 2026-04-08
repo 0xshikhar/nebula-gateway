@@ -29,3 +29,87 @@ model User {
   @@index([walletAddress])
 }
 
+model PolicyVersion {
+  id                String              @id @default(cuid())
+  version           String              @unique
+  source            String?
+  protocol          String?
+  decisionMode      String?
+  minTrustScore     Int?
+  minBand           Int?
+  requireHuman      Boolean             @default(false)
+  requireCredential Boolean             @default(false)
+  active            Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  verificationEvents VerificationEvent[]
+  auditEvents       AuditEvent[]
+}
+
+model TrustScoreSnapshot {
+  id            String   @id @default(cuid())
+  wallet        String
+  protocol      String
+  score         Int
+  bandLabel     String
+  signalSummary Json?
+  createdAt     DateTime @default(now())
+
+  @@index([wallet, protocol])
+  @@index([createdAt])
+}
+
+model ProofEvent {
+  id            String             @id @default(cuid())
+  wallet        String
+  protocol      String
+  proofId       String?            @unique
+  proofLibrary   String
+  issuedAt      DateTime?
+  verifiedAt    DateTime?
+  status        String
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+  verificationEvents VerificationEvent[]
+
+  @@index([wallet, protocol])
+  @@index([status, createdAt])
+}
+
+model VerificationEvent {
+  id               String          @id @default(cuid())
+  wallet           String
+  protocol         String
+  decision         String
+  trustScore       Int
+  bandLabel        String
+  policyVersion    String
+  proofLibrary     String
+  proofId          String?
+  reasons          Json
+  verifiedAt       DateTime        @default(now())
+  proofEventId     String?
+  proofEvent       ProofEvent?     @relation(fields: [proofEventId], references: [id], onDelete: SetNull)
+  policyVersionId  String?
+  policyVersionRow PolicyVersion?  @relation(fields: [policyVersionId], references: [id], onDelete: SetNull)
+  auditEvents      AuditEvent[]
+
+  @@index([wallet, protocol])
+  @@index([policyVersion])
+  @@index([verifiedAt])
+}
+
+model AuditEvent {
+  id               String          @id @default(cuid())
+  eventType        String
+  wallet           String?
+  protocol         String?
+  payload          Json
+  createdAt        DateTime        @default(now())
+  verificationEventId String?
+  verificationEvent   VerificationEvent? @relation(fields: [verificationEventId], references: [id], onDelete: SetNull)
+  policyVersionId   String?
+  policyVersionRow  PolicyVersion? @relation(fields: [policyVersionId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, createdAt])
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import {
   useAccount,
@@ -40,6 +40,7 @@ import { createBrowserProof } from "@/lib/nebula-proof"
 import {
   defaultProofLibrary,
   evaluateTrust,
+  getTrustPolicy,
   protocolPresets,
   type TrustDecision,
   type TrustInput,
@@ -62,6 +63,34 @@ type DashboardResult = ReturnType<typeof evaluateTrust> & {
   protocol: TrustProtocol
   proofId: string
   verifiedAt: string
+}
+
+type AuditRecord = {
+  id: string
+  wallet?: string | null
+  protocol?: string | null
+  decision?: string | null
+  trustScore?: number | null
+  bandLabel?: string | null
+  policyVersion?: string | null
+  proofLibrary?: string | null
+  proofId?: string | null
+  eventType?: string | null
+  status?: string | null
+  createdAt?: string | null
+  verifiedAt?: string | null
+  payload?: Record<string, unknown> | null
+  reasons?: unknown
+  version?: string | null
+  active?: boolean | null
+  source?: string | null
+}
+
+type AuditFeed = {
+  verificationEvents: AuditRecord[]
+  auditEvents: AuditRecord[]
+  proofEvents: AuditRecord[]
+  policyVersions: AuditRecord[]
 }
 
 const initialState: TrustInput = {
@@ -107,22 +136,17 @@ export function NebulaDashboard() {
   const [proofMeta, setProofMeta] = useState<{ proofId: string; issuedAt: string } | null>(null)
   const [browserProofMessage, setBrowserProofMessage] = useState<string>("")
   const [isGeneratingProof, setIsGeneratingProof] = useState(false)
+  const [auditFeed, setAuditFeed] = useState<AuditFeed | null>(null)
+  const [isAuditLoading, setIsAuditLoading] = useState(false)
+  const [auditError, setAuditError] = useState<string | null>(null)
 
   const currentPreset = useMemo(
     () => protocolPresets.find((preset) => preset.key === state.protocol) ?? protocolPresets[0],
     [state.protocol],
   )
 
-  const selectedPolicyId = useMemo(() => {
-    const policyKeys: Record<TrustProtocol, string> = {
-      vault: "lending-pool-v1",
-      pool: "premium-pool-v1",
-      rewards: "rewards-access-v1",
-      airdrop: "airdrop-2026",
-    }
-
-    return keccak256(stringToHex(policyKeys[state.protocol]))
-  }, [state.protocol])
+  const currentPolicy = useMemo(() => getTrustPolicy(state.protocol), [state.protocol])
+  const selectedPolicyId = useMemo(() => keccak256(stringToHex(currentPolicy.id)), [currentPolicy.id])
 
   const preview = useMemo(() => {
     return evaluateTrust({
@@ -131,6 +155,31 @@ export function NebulaDashboard() {
       proofLibrary: defaultProofLibrary,
     })
   }, [address, state])
+
+  const loadAuditFeed = useCallback(async () => {
+    setIsAuditLoading(true)
+    setAuditError(null)
+
+    try {
+      const response = await fetch("/api/audit?limit=8")
+
+      if (!response.ok) {
+        throw new Error("Unable to load audit trail")
+      }
+
+      const data = (await response.json()) as AuditFeed
+      setAuditFeed(data)
+    } catch (error) {
+      setAuditFeed(null)
+      setAuditError(error instanceof Error ? error.message : "Unable to load audit trail")
+    } finally {
+      setIsAuditLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadAuditFeed()
+  }, [loadAuditFeed])
 
   const lastDecisionTuple = useReadContract({
     address: nebulaTrustGateAddress,
@@ -225,6 +274,7 @@ export function NebulaDashboard() {
 
       const data = (await response.json()) as DashboardResult
       setResult(data)
+      void loadAuditFeed()
     } catch (error) {
       console.error(error)
     } finally {
@@ -400,7 +450,7 @@ export function NebulaDashboard() {
 
                 <Separator className="bg-white/10" />
 
-                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+              <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Preview decision</p>
@@ -409,6 +459,69 @@ export function NebulaDashboard() {
                     <Badge className="rounded-full border-white/10 bg-white/10 text-white">{preview.bandLabel}</Badge>
                   </div>
                   <p className="mt-3 text-sm text-slate-300">{preview.summary}</p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Policy</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{preview.policy.title}</p>
+                      <p className="mt-2 text-xs text-slate-300">ID: {preview.policy.id}</p>
+                      <p className="mt-1 text-xs text-slate-300">Version: {preview.policyVersion}</p>
+                      <p className="mt-1 text-xs text-slate-300">Min score: {preview.policy.minTrustScore}</p>
+                      <p className="mt-1 text-xs text-slate-300">Min band: {preview.policy.minBand}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Signal score</p>
+                      <p className="mt-2 text-3xl font-semibold text-white">{preview.signalBreakdown.trustScore}</p>
+                      <p className="mt-1 text-xs text-slate-300">
+                        Review threshold: {preview.policy.reviewThreshold}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-300">
+                        Human proof: {preview.policy.requireHuman ? "required" : "optional"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-300">
+                        Credential: {preview.policy.requireCredential ? "required" : "optional"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Signal breakdown</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {preview.signalBreakdown.contributions.map((item) => (
+                        <div key={item.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-300">{item.label}</span>
+                            <Badge variant="outline" className="border-white/10 bg-white/5 text-[10px] text-slate-200">
+                              {item.enabled ? "on" : "off"}
+                            </Badge>
+                          </div>
+                          <p className="mt-2 text-sm font-semibold text-white">{item.contribution} / {item.weight}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      {preview.signalBreakdown.conditions.map((condition) => (
+                        <div
+                          key={condition.key}
+                          className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
+                        >
+                          <div>
+                            <p className="text-xs text-slate-300">{condition.label}</p>
+                            <p className="mt-0.5 text-[11px] text-slate-500">{condition.reason}</p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "border-white/10",
+                              condition.passed
+                                ? "bg-emerald-400/10 text-emerald-100"
+                                : "bg-rose-400/10 text-rose-100",
+                            )}
+                          >
+                            {condition.passed ? "pass" : "block"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -604,6 +717,153 @@ export function NebulaDashboard() {
               )}
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      <section className="border-t border-white/10 bg-[#050816]">
+        <div className="mx-auto max-w-7xl px-4 py-16">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Operator trail</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">Audit history and persistence preview</h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                Recent verification, proof, policy, and audit records are persisted when a database is configured.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="rounded-full border-white/15 bg-white/5 px-4 text-white hover:bg-white/10"
+              onClick={() => void loadAuditFeed()}
+              disabled={isAuditLoading}
+            >
+              {isAuditLoading ? "Refreshing..." : "Refresh audit trail"}
+            </Button>
+          </div>
+
+          {auditError ? (
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-50">
+              {auditError}
+            </div>
+          ) : null}
+
+          {auditFeed ? (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="border-white/10 bg-white/[0.04] text-white">
+                <CardHeader>
+                  <CardTitle className="text-xl">Verification events</CardTitle>
+                  <CardDescription className="text-slate-300">
+                    Latest trust decisions returned by the API.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {auditFeed.verificationEvents.length > 0 ? (
+                    auditFeed.verificationEvents.map((event) => {
+                      const decision = (event.decision ?? "deny") as TrustDecision
+                      const reasons = Array.isArray(event.reasons) ? event.reasons : []
+
+                      return (
+                        <div key={event.id} className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-mono text-xs text-slate-400">{event.wallet ?? "unknown wallet"}</p>
+                              <p className="mt-1 text-sm text-slate-200">{event.protocol ?? "unknown protocol"}</p>
+                            </div>
+                            <Badge className={cn("rounded-full", decisionStyles[decision])}>{decision}</Badge>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
+                            <p>score: {event.trustScore ?? "n/a"}</p>
+                            <p>band: {event.bandLabel ?? "n/a"}</p>
+                            <p>policy: {event.policyVersion ?? "n/a"}</p>
+                            <p>proof: {event.proofId ?? "n/a"}</p>
+                          </div>
+                          <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-slate-500">
+                            {event.verifiedAt ? new Date(event.verifiedAt).toLocaleString() : "no timestamp"}
+                          </p>
+                          {reasons.length > 0 ? (
+                            <ul className="mt-3 space-y-1 text-xs text-slate-300">
+                              {reasons.slice(0, 3).map((reason) => (
+                                <li key={String(reason)} className="flex gap-2">
+                                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-current" />
+                                  <span>{String(reason)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <p className="text-sm text-slate-400">No verification events yet.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-white/10 bg-white/[0.04] text-white">
+                <CardHeader>
+                  <CardTitle className="text-xl">Proof and policy records</CardTitle>
+                  <CardDescription className="text-slate-300">
+                    Proof submissions, policy snapshots, and append-only audit entries.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Proof events</p>
+                    <div className="mt-3 space-y-3">
+                      {auditFeed.proofEvents.length > 0 ? auditFeed.proofEvents.slice(0, 3).map((event) => (
+                        <div key={event.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300">
+                          <p className="font-mono text-slate-200">{event.proofId ?? "no proof id"}</p>
+                          <p className="mt-1">{event.protocol ?? "unknown protocol"} · {event.status ?? "unknown status"}</p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {event.createdAt ? new Date(event.createdAt).toLocaleString() : "no timestamp"}
+                          </p>
+                        </div>
+                      )) : (
+                        <p className="text-sm text-slate-400">No proof records yet.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Policy versions</p>
+                    <div className="mt-3 space-y-3">
+                      {auditFeed.policyVersions.length > 0 ? auditFeed.policyVersions.slice(0, 3).map((policy) => (
+                        <div key={policy.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300">
+                          <p className="font-semibold text-slate-100">{policy.version ?? "unknown version"}</p>
+                          <p className="mt-1">{policy.source ?? "unknown source"}</p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            active: {policy.active ? "yes" : "no"} · updated {policy.updatedAt ? new Date(policy.updatedAt).toLocaleString() : "n/a"}
+                          </p>
+                        </div>
+                      )) : (
+                        <p className="text-sm text-slate-400">No policy snapshots yet.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Audit entries</p>
+                    <div className="mt-3 space-y-3">
+                      {auditFeed.auditEvents.length > 0 ? auditFeed.auditEvents.slice(0, 3).map((event) => (
+                        <div key={event.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-300">
+                          <p className="font-semibold text-slate-100">{event.eventType ?? "unknown event"}</p>
+                          <p className="mt-1">{event.protocol ?? "general"} · {event.wallet ?? "no wallet"}</p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {event.createdAt ? new Date(event.createdAt).toLocaleString() : "no timestamp"}
+                          </p>
+                        </div>
+                      )) : (
+                        <p className="text-sm text-slate-400">No audit entries yet.</p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
+              {isAuditLoading ? "Loading audit trail..." : "Audit trail unavailable or not yet recorded."}
+            </div>
+          )}
         </div>
       </section>
     </div>
