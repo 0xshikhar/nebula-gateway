@@ -31,10 +31,13 @@ export async function persistPolicyVersionSnapshot(input: {
   requireCredential?: boolean
   active?: boolean
 }) {
+  const policyKey = input.protocol ? `${input.protocol}:${input.version}` : input.version
+
   return persist("policyVersion", () =>
     prisma.policyVersion.upsert({
-      where: { version: input.version },
+      where: { policyKey },
       update: {
+        policyKey,
         source: input.source,
         protocol: input.protocol,
         decisionMode: input.decisionMode,
@@ -45,6 +48,7 @@ export async function persistPolicyVersionSnapshot(input: {
         active: input.active ?? true,
       },
       create: {
+        policyKey,
         version: input.version,
         source: input.source,
         protocol: input.protocol,

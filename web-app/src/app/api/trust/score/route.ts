@@ -7,6 +7,8 @@ import {
   persistTrustScoreSnapshot,
 } from "@/lib/trust-audit"
 
+export const dynamic = "force-dynamic"
+
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as Partial<TrustInput>
 

@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { defaultProofLibrary, policyVersion, protocolPresets } from "@/lib/nebula-trust"
 import { persistAuditEvent, persistPolicyVersionSnapshot } from "@/lib/trust-audit"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   const policyEvent = await persistPolicyVersionSnapshot({
     version: policyVersion,
