@@ -91,7 +91,7 @@ describe("TrustAccessControl", function () {
 
     it("should deny deposit with insufficient trust", async function () {
       // Give user1 low trust score (band 1)
-      await trustVerifier.updateTrustScore(user1.address, 15, 1);
+      await trustVerifier.updateTrustScore(user1.address, 15, 0);
 
       // Deposit should fail - band 1 < required band 2
       await expect(
@@ -194,7 +194,7 @@ describe("TrustAccessControl", function () {
     });
 
     it("should prevent double claim", async function () {
-      await trustVerifier.updateTrustScore(user1.address, 50, 3);
+      await trustVerifier.updateTrustScore(user1.address, 50, 2);
 
       await trustAirdrop.connect(user1).claim();
 
@@ -204,7 +204,7 @@ describe("TrustAccessControl", function () {
     });
 
     it("should track claim count", async function () {
-      await trustVerifier.updateTrustScore(user1.address, 50, 3);
+      await trustVerifier.updateTrustScore(user1.address, 50, 2);
       await trustVerifier.updateTrustScore(user2.address, 60, 3);
 
       await trustAirdrop.connect(user1).claim();

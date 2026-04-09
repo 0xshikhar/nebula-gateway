@@ -34,16 +34,17 @@ contract TrustVerifier is Ownable {
 
     function updateTrustScore(address user, uint256 score, uint256 band) external onlyOwner {
         require(score <= SCORE_MAX, "Score too high");
-        require(band >= 1 && band <= 5, "Invalid band");
+        uint256 derivedBand = getBand(score);
+        require(band == derivedBand, "Band does not match score");
 
         trustScores[user] = TrustScore({
             score: score,
-            band: band,
+            band: derivedBand,
             timestamp: block.timestamp,
             expiry: block.timestamp + SCORE_EXPIRY
         });
 
-        emit TrustScoreUpdated(user, score, band);
+        emit TrustScoreUpdated(user, score, derivedBand);
     }
 
     function verify(address user, uint256 minBand) external view returns (bool) {
@@ -83,7 +84,7 @@ contract TrustVerifier is Ownable {
         return 0;
     }
 
-    function useNullifier(bytes32 nullifier) external onlyOwner {
+    function useNullifier(bytes32 nullifier) external {
         require(!usedNullifiers[nullifier], "Nullifier already used");
         usedNullifiers[nullifier] = true;
     }

@@ -1,5 +1,6 @@
 const hre = require("hardhat");
 const fs = require("fs");
+const path = require("path");
 
 // BigInt serialization fix
 BigInt.prototype.toJSON = function () {
@@ -144,23 +145,19 @@ async function main() {
   console.log("\nDeployment completed!");
 
   // Save deployment info
-  const deploymentDir = "../web-app/src/deployments";
+  const deploymentDir = path.resolve(__dirname, "../../web-app/src/deployments");
   if (!fs.existsSync(deploymentDir)) {
     fs.mkdirSync(deploymentDir, { recursive: true });
   }
 
+  const deploymentJson = JSON.stringify(deploymentInfo, null, 2);
   fs.writeFileSync(
     `${deploymentDir}/${networkName}.json`,
-    JSON.stringify(deploymentInfo, null, 2)
+    deploymentJson
   );
   console.log(`Deployment info written to ${deploymentDir}/${networkName}.json`);
-
-  // Also write to a convenience file
-  // fs.writeFileSync(
-  //   "../web-app/src/deployments/latest.json",
-  //   JSON.stringify(deploymentInfo, null, 2)
-  // );
-  // console.log(`Deployment info also written to ${deploymentDir}/latest.json`);
+  fs.writeFileSync(`${deploymentDir}/latest.json`, deploymentJson);
+  console.log(`Deployment info also written to ${deploymentDir}/latest.json`);
 
   // Helper function
   function keccak256(text) {

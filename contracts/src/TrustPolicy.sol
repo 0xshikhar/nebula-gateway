@@ -106,21 +106,16 @@ contract TrustPolicy is Ownable {
         return policyIds;
     }
 
-    function evaluatePolicy(
-        address user,
-        bytes32 policyId,
+    function _evaluatePolicyChecks(
+        Policy memory p,
         uint256 userTrustScore,
         uint256 userBand,
         bool isHuman,
         bool hasCredential
-    ) external view returns (bool allowed, string[] memory reasons) {
-        Policy memory p = policies[policyId];
-        
-        if (!p.active) revert PolicyDoesNotExist();
-        
-        bool canCheck = true;
+    ) internal pure returns (bool allowed, string[] memory reasons) {
         string[] memory _reasons = new string[](4);
         uint256 reasonCount = 0;
+        bool canCheck = true;
 
         if (userTrustScore < p.minTrustScore) {
             _reasons[reasonCount++] = "Trust score below minimum";
@@ -150,8 +145,22 @@ contract TrustPolicy is Ownable {
         return (canCheck, finalReasons);
     }
 
-    function approveUser(
+    function evaluatePolicy(
         address user,
+        bytes32 policyId,
+        uint256 userTrustScore,
+        uint256 userBand,
+        bool isHuman,
+        bool hasCredential
+    ) external view returns (bool allowed, string[] memory reasons) {
+        Policy memory p = policies[policyId];
+        user;
+        if (!p.active) revert PolicyDoesNotExist();
+        return _evaluatePolicyChecks(p, userTrustScore, userBand, isHuman, hasCredential);
+    }
+
+    function approveUser(
+        address _user,
         bytes32 policyId,
         uint256 userTrustScore,
         uint256 userBand,
@@ -162,28 +171,22 @@ contract TrustPolicy is Ownable {
         
         if (!p.active) revert PolicyDoesNotExist();
 
-        if (userTrustScore < p.minTrustScore) {
-            emit UserDenied(user, policyId, "Trust score too low");
+        (bool isAllowed, string[] memory reasons) = _evaluatePolicyChecks(
+            p,
+            userTrustScore,
+            userBand,
+            isHuman,
+            hasCredential
+        );
+
+        if (!isAllowed) {
+            string memory reason = reasons.length > 0 ? reasons[0] : "Policy requirements not met";
+            emit UserDenied(_user, policyId, reason);
             return false;
         }
 
-        if (userBand < p.minBand) {
-            emit UserDenied(user, policyId, "Trust band too low");
-            return false;
-        }
-
-        if (p.requireHuman && !isHuman) {
-            emit UserDenied(user, policyId, "Human verification required");
-            return false;
-        }
-
-        if (p.requireCredential && !hasCredential) {
-            emit UserDenied(user, policyId, "Credential required");
-            return false;
-        }
-
-        userPolicyApprovals[user][policyId] = true;
-        emit UserApproved(user, policyId, userTrustScore, userBand);
+        userPolicyApprovals[_user][policyId] = true;
+        emit UserApproved(_user, policyId, userTrustScore, userBand);
         
         return true;
     }

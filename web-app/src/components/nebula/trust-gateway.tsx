@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { useAccount, useChainId, useSignMessage, useSwitchChain } from "wagmi"
+import { useAccount, useChainId, useSignMessage, useSwitchChain, useWriteContract } from "wagmi"
+import { keccak256, stringToHex } from "viem"
 import {
   ArrowRight,
   BadgeCheck,
@@ -35,6 +36,7 @@ import {
   type TrustInput,
   type TrustProtocol,
 } from "@/lib/nebula-trust"
+import { nebulaTrustVerifierAddress, trustVerifierAbi } from "@/lib/nebula-contracts"
 
 type ResultState = ReturnType<typeof evaluateTrust> & {
   wallet: string
@@ -66,6 +68,7 @@ export function TrustGateway() {
   const chainId = useChainId()
   const { signMessageAsync } = useSignMessage()
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
+  const { writeContractAsync } = useWriteContract()
   const [form, setForm] = useState<TrustInput>(initialState)
   const [result, setResult] = useState<ResultState | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -118,6 +121,21 @@ export function TrustGateway() {
         proofId: proofArtifact.proofId,
         issuedAt: proofArtifact.issuedAt,
       })
+
+      const proofNullifier = keccak256(stringToHex(proofArtifact.proofId))
+
+      if (nebulaTrustVerifierAddress !== "0x0000000000000000000000000000000000000000") {
+        try {
+          await writeContractAsync({
+            address: nebulaTrustVerifierAddress,
+            abi: trustVerifierAbi,
+            functionName: "useNullifier",
+            args: [proofNullifier],
+          })
+        } catch (nullifierError) {
+          console.warn("Unable to register nullifier", nullifierError)
+        }
+      }
 
       const response = await fetch("/api/trust/verify", {
         method: "POST",

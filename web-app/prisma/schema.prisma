@@ -31,7 +31,8 @@ model User {
 
 model PolicyVersion {
   id                String              @id @default(cuid())
-  version           String              @unique
+  policyKey         String              @unique
+  version           String
   source            String?
   protocol          String?
   decisionMode      String?

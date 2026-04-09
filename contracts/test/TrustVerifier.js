@@ -34,11 +34,17 @@ describe("TrustVerifier", function () {
     it("should reject invalid band", async function () {
       await expect(
         trustVerifier.updateTrustScore(user1.address, 50, 0)
-      ).to.be.revertedWith("Invalid band");
+      ).to.be.revertedWith("Band does not match score");
 
       await expect(
         trustVerifier.updateTrustScore(user1.address, 50, 6)
-      ).to.be.revertedWith("Invalid band");
+      ).to.be.revertedWith("Band does not match score");
+    });
+
+    it("should derive band from score and reject mismatched band", async function () {
+      await expect(
+        trustVerifier.updateTrustScore(user1.address, 15, 1)
+      ).to.be.revertedWith("Band does not match score");
     });
 
     it("should allow only owner to update scores", async function () {

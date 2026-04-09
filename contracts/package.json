@@ -7,6 +7,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:hashkeyTestnet": "hardhat run scripts/deploy.js --network hashkeyTestnet",
+    "deploy:hashkeyMainnet": "hardhat run scripts/deploy.js --network hashkeyMainnet",
     "deploy:goerli": "hardhat run scripts/deploy.js --network goerli",
     "deploy:mumbai": "hardhat run scripts/deploy.js --network mumbai",
     "deploy:filecoin": "hardhat run scripts/deploy.js --network filecoinCalibration",
