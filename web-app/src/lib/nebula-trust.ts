@@ -63,7 +63,7 @@ export interface TrustResult {
   summary: string
 }
 
-export const defaultProofLibrary: TrustProofLibrary = "browser-signature"
+export const defaultProofLibrary: TrustProofLibrary = "semaphore"
 export const policyVersion = "nebula-trust-v1"
 
 export const trustPolicyCatalog: Record<TrustProtocol, TrustPolicyProfile> = {
