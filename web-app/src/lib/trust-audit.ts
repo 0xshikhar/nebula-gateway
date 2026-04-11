@@ -177,3 +177,71 @@ export async function persistAuditEvent(input: {
     }),
   )
 }
+
+export async function persistSemaphoreMember(input: {
+  wallet: string
+  protocol: string
+  policyVersion: string
+  commitment: string
+  decision?: string
+  trustScore?: number
+  bandLabel?: string
+  active?: boolean
+}) {
+  return persist("semaphoreMember", () =>
+    prisma.semaphoreMember.upsert({
+      where: {
+        protocol_policyVersion_commitment: {
+          protocol: input.protocol,
+          policyVersion: input.policyVersion,
+          commitment: input.commitment,
+        },
+      },
+      update: {
+        wallet: input.wallet,
+        decision: input.decision,
+        trustScore: input.trustScore,
+        bandLabel: input.bandLabel,
+        active: input.active ?? true,
+      },
+      create: {
+        wallet: input.wallet,
+        protocol: input.protocol,
+        policyVersion: input.policyVersion,
+        commitment: input.commitment,
+        decision: input.decision,
+        trustScore: input.trustScore,
+        bandLabel: input.bandLabel,
+        active: input.active ?? true,
+      },
+    }),
+  )
+}
+
+export async function persistSemaphoreProofEvent(input: {
+  wallet: string
+  protocol: string
+  policyVersion: string
+  scope: string
+  message: string
+  nullifier: string
+  merkleRoot: string
+  merkleDepth: number
+  proof: Record<string, unknown>
+}) {
+  return persist("semaphoreProofEvent", () =>
+    prisma.semaphoreProofEvent.create({
+      data: {
+        wallet: input.wallet,
+        protocol: input.protocol,
+        policyVersion: input.policyVersion,
+        scope: input.scope,
+        message: input.message,
+        nullifier: input.nullifier,
+        merkleRoot: input.merkleRoot,
+        merkleDepth: input.merkleDepth,
+        proof: input.proof,
+      },
+    }),
+  )
+}
