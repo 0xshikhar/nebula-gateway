@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { useAccount, useChainId, useSignMessage, useSwitchChain, useWriteContract } from "wagmi"
-import { keccak256, stringToHex } from "viem"
+import { useAccount, useChainId, useSwitchChain, useWriteContract, useDisconnect } from "wagmi"
 import {
   ArrowRight,
   BadgeCheck,
@@ -17,6 +16,10 @@ import {
   Shield,
   Sparkles,
   Users,
+  Loader2,
+  AlertCircle,
+  WifiOff,
+  Unplug,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -25,8 +28,8 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
-import { createBrowserProof } from "@/lib/nebula-proof"
 import { hashkeyTestnet } from "@/lib/customChain"
 import {
   defaultProofLibrary,
@@ -37,6 +40,11 @@ import {
   type TrustProtocol,
 } from "@/lib/nebula-trust"
 import { nebulaTrustVerifierAddress, trustVerifierAbi } from "@/lib/nebula-contracts"
+import {
+  generateSemaphoreProofBundle,
+  getOrCreateSemaphoreIdentity,
+  verifySemaphoreProofBundle,
+} from "@/lib/nebula-semaphore"
 
 type ResultState = ReturnType<typeof evaluateTrust> & {
   wallet: string
@@ -64,17 +72,38 @@ const decisionStyles: Record<TrustDecision, string> = {
 }
 
 export function TrustGateway() {
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
   const chainId = useChainId()
-  const { signMessageAsync } = useSignMessage()
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
+  const { disconnect } = useDisconnect()
   const [form, setForm] = useState<TrustInput>(initialState)
   const [result, setResult] = useState<ResultState | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [proofPreview, setProofPreview] = useState<{ proofId: string; issuedAt: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   const connectedWallet = address || form.wallet
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {}
+
+    if (!connectedWallet) {
+      errors.wallet = "Please connect your wallet first"
+    }
+
+    if (chainId !== hashkeyTestnet.id && chainId !== 0) {
+      errors.chain = `Please switch to ${hashkeyTestnet.name}`
+    }
+
+    if (form.reputationBand < 0 || form.reputationBand > 4) {
+      errors.band = "Band must be between 0 and 4"
+    }
+
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
 
   const recommendedProtocol = useMemo(
     () => protocolPresets.find((item) => item.key === form.protocol) ?? protocolPresets[0],
@@ -99,7 +128,20 @@ export function TrustGateway() {
   }
 
   const runVerification = async () => {
+    setError(null)
+    setValidationErrors({})
     setIsLoading(true)
+    console.info("[semaphore] trust-gateway verification started", {
+      wallet: connectedWallet,
+      protocol: form.protocol,
+      chainId,
+    })
+
+    if (!validateForm()) {
+      setIsLoading(false)
+      return
+    }
+
     try {
       if (!connectedWallet) {
         throw new Error("Connect a wallet before generating a proof")
@@ -107,34 +149,6 @@ export function TrustGateway() {
 
       if (chainId !== hashkeyTestnet.id) {
         await switchChainAsync?.({ chainId: hashkeyTestnet.id })
-      }
-
-      const proofArtifact = createBrowserProof({
-        address: connectedWallet,
-        chainId: hashkeyTestnet.id,
-        protocol: form.protocol,
-        trustBand: form.reputationBand,
-      })
-
-      const signature = await signMessageAsync({ message: proofArtifact.message })
-      setProofPreview({
-        proofId: proofArtifact.proofId,
-        issuedAt: proofArtifact.issuedAt,
-      })
-
-      const proofNullifier = keccak256(stringToHex(proofArtifact.proofId))
-
-      if (nebulaTrustVerifierAddress !== "0x0000000000000000000000000000000000000000") {
-        try {
-          await writeContractAsync({
-            address: nebulaTrustVerifierAddress,
-            abi: trustVerifierAbi,
-            functionName: "useNullifier",
-            args: [proofNullifier],
-          })
-        } catch (nullifierError) {
-          console.warn("Unable to register nullifier", nullifierError)
-        }
       }
 
       const response = await fetch("/api/trust/verify", {
@@ -145,14 +159,8 @@ export function TrustGateway() {
         body: JSON.stringify({
           ...form,
           wallet: connectedWallet,
-          proofId: proofArtifact.proofId,
           proofLibrary: defaultProofLibrary,
-          proof: {
-            message: proofArtifact.message,
-            signature,
-            nonce: proofArtifact.nonce,
-            issuedAt: proofArtifact.issuedAt,
-          },
+          identityCommitment: getOrCreateSemaphoreIdentity(connectedWallet).commitment.toString(),
         }),
       })
 
@@ -162,9 +170,141 @@ export function TrustGateway() {
 
       const data = (await response.json()) as ResultState
       setResult(data)
-      updateForm({ proofId: proofArtifact.proofId })
-    } catch (error) {
-      console.error(error)
+      console.info("[semaphore] trust decision received", {
+        wallet: connectedWallet,
+        protocol: form.protocol,
+        decision: data.decision,
+        trustScore: data.trustScore,
+        policyVersion: data.policyVersion,
+        proofId: data.proofId,
+      })
+
+      if (data.decision !== "allow") {
+        setProofPreview(null)
+        console.info("[semaphore] proof generation skipped because decision was not allow", {
+          wallet: connectedWallet,
+          decision: data.decision,
+        })
+        return
+      }
+
+      const groupResponse = await fetch(
+        `/api/semaphore/group?protocol=${encodeURIComponent(form.protocol)}&policyVersion=${encodeURIComponent(
+          data.policyVersion,
+        )}`,
+      )
+
+      if (!groupResponse.ok) {
+        throw new Error("Unable to load Semaphore group")
+      }
+
+      const groupPayload = (await groupResponse.json()) as {
+        commitments: Array<string | bigint>
+        policyVersion: string
+        protocol: TrustProtocol
+        scope: string
+        root: string
+        depth: number
+        source?: string
+      }
+
+      console.info("[semaphore] group loaded", {
+        wallet: connectedWallet,
+        protocol: form.protocol,
+        policyVersion: data.policyVersion,
+        source: groupPayload.source ?? "unknown",
+        depth: groupPayload.depth,
+        commitmentCount: groupPayload.commitments.length,
+        root: groupPayload.root,
+      })
+
+      const proofBundle = await generateSemaphoreProofBundle({
+        wallet: connectedWallet,
+        protocol: form.protocol,
+        policyVersion: data.policyVersion,
+        trustScore: data.trustScore,
+        groupCommitments: groupPayload.commitments,
+      })
+
+      const localVerification = await verifySemaphoreProofBundle(proofBundle.proof)
+
+      if (!localVerification) {
+        throw new Error("Semaphore proof failed local verification")
+      }
+
+      console.info("[semaphore] local proof verification passed", {
+        wallet: connectedWallet,
+        protocol: form.protocol,
+        nullifier: proofBundle.proof.nullifier,
+        scopeHash: proofBundle.scopeHash,
+        messageHash: proofBundle.messageHash,
+      })
+
+      const proofResponse = await fetch("/api/semaphore/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          wallet: connectedWallet,
+          protocol: form.protocol,
+          policyVersion: data.policyVersion,
+          scope: proofBundle.scope,
+          message: proofBundle.message,
+          proof: proofBundle.proof,
+        }),
+      })
+
+      if (!proofResponse.ok) {
+        throw new Error("Semaphore proof verification failed")
+      }
+
+      console.info("[semaphore] proof stored successfully", {
+        wallet: connectedWallet,
+        protocol: form.protocol,
+        nullifier: proofBundle.proof.nullifier,
+      })
+
+      updateForm({ proofId: proofBundle.proof.nullifier })
+      setProofPreview({
+        proofId: proofBundle.proof.nullifier,
+        issuedAt: new Date().toISOString(),
+      })
+
+      setResult((current) =>
+        current
+          ? {
+              ...current,
+              proofId: proofBundle.proof.nullifier,
+            }
+          : current,
+      )
+
+      if (nebulaTrustVerifierAddress !== "0x0000000000000000000000000000000000000000") {
+        try {
+          await writeContractAsync({
+            address: nebulaTrustVerifierAddress,
+            abi: trustVerifierAbi,
+            functionName: "useNullifier",
+            args: [proofBundle.proof.nullifier as `0x${string}`],
+          })
+          console.info("[semaphore] nullifier registered on-chain", {
+            wallet: connectedWallet,
+            nullifier: proofBundle.proof.nullifier,
+          })
+        } catch (nullifierError) {
+          console.warn("Unable to register nullifier (non-critical)", nullifierError)
+        }
+      }
+    } catch (err) {
+      console.error(err)
+      const message = err instanceof Error ? err.message : "An unexpected error occurred"
+      setError(message)
+      console.error("[semaphore] trust-gateway verification failed", {
+        wallet: connectedWallet,
+        protocol: form.protocol,
+        error: message,
+      })
     } finally {
       setIsLoading(false)
     }
@@ -185,7 +325,7 @@ export function TrustGateway() {
               </h1>
               <p className="mt-6 max-w-2xl text-pretty text-base leading-8 text-slate-300 md:text-lg">
                 Start the Nebula Trust Gateway on top of the existing Wagmi, Viem, Tailwind, and RainbowKit app.
-                Users connect a wallet, generate a browser-based proof, and protocols receive a simple
+                Users connect a wallet, generate a Semaphore proof, and protocols receive a simple
                 `allow`, `review`, or `deny` decision.
               </p>
 
@@ -195,7 +335,7 @@ export function TrustGateway() {
                   disabled={!connectedWallet || isLoading || isSwitchingChain}
                   className="rounded-full bg-white px-6 text-slate-950 hover:bg-emerald-100"
                 >
-                  {isSwitchingChain ? "Switching to HashKey..." : isLoading ? "Generating browser proof..." : "Run trust verification"}
+                  {isSwitchingChain ? "Switching to HashKey..." : isLoading ? "Generating Semaphore proof..." : "Run trust verification"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 <Button
@@ -215,7 +355,7 @@ export function TrustGateway() {
                   Indexer: Blockscout
                 </Badge>
                 <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
-                  Proof: Browser signature
+                  Proof: Semaphore
                 </Badge>
                 <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
                   Deployment: Vercel
@@ -241,6 +381,26 @@ export function TrustGateway() {
                     </div>
                     <ConnectButton showBalance={false} />
                   </div>
+                  {isConnected && chainId !== hashkeyTestnet.id && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2">
+                      <AlertCircle className="h-4 w-4 text-amber-200" />
+                      <span className="text-sm text-amber-200">
+                        Wrong network.{" "}
+                        <button
+                          onClick={() => switchChainAsync?.({ chainId: hashkeyTestnet.id })}
+                          className="underline underline-offset-2 hover:text-amber-100"
+                        >
+                          Switch to {hashkeyTestnet.name}
+                        </button>
+                      </span>
+                    </div>
+                  )}
+                  {error && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 py-2">
+                      <AlertCircle className="h-4 w-4 text-rose-200" />
+                      <span className="text-sm text-rose-200">{error}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3 rounded-2xl border border-white/10 bg-slate-950/60 p-4">
@@ -276,6 +436,9 @@ export function TrustGateway() {
                     <Label className="text-slate-300">Reputation band</Label>
                     <span className="text-sm text-slate-200">Band {form.reputationBand}</span>
                   </div>
+                  {validationErrors.band && (
+                    <p className="mb-2 text-xs text-rose-200">{validationErrors.band}</p>
+                  )}
                   <Slider
                     value={[form.reputationBand]}
                     min={0}
@@ -332,7 +495,7 @@ export function TrustGateway() {
                     disabled={isLoading || isSwitchingChain}
                     className="flex-1 rounded-2xl bg-emerald-400 text-slate-950 hover:bg-emerald-300"
                   >
-                    {isSwitchingChain ? "Switching to HashKey..." : isLoading ? "Generating browser proof..." : "Generate proof + verify"}
+                    {isSwitchingChain ? "Switching to HashKey..." : isLoading ? "Generating Semaphore proof..." : "Generate proof + verify"}
                     <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -487,8 +650,8 @@ export function TrustGateway() {
           <div className="grid gap-4 md:grid-cols-4">
             {[
               {
-                title: "Browser proof",
-                copy: "Wagmi + RainbowKit + browser-side proof preparation.",
+                title: "Semaphore proof",
+                copy: "Wagmi + RainbowKit + Semaphore identity and proof preparation.",
                 icon: Code2,
               },
               {

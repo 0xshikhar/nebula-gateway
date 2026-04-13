@@ -9,7 +9,6 @@ import {
   useSwitchChain,
   useWaitForTransactionReceipt,
   useWriteContract,
-  useSignMessage,
 } from "wagmi"
 import {
   ArrowRight,
@@ -26,7 +25,6 @@ import {
   Users,
 } from "lucide-react"
 import { keccak256, stringToHex } from "viem"
-
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -36,7 +34,11 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
-import { createBrowserProof } from "@/lib/nebula-proof"
+import {
+  generateSemaphoreProofBundle,
+  getOrCreateSemaphoreIdentity,
+  verifySemaphoreProofBundle,
+} from "@/lib/nebula-semaphore"
 import {
   defaultProofLibrary,
   evaluateTrust,
@@ -61,8 +63,9 @@ import { hashkeyTestnet } from "@/lib/customChain"
 type DashboardResult = ReturnType<typeof evaluateTrust> & {
   wallet: string
   protocol: TrustProtocol
-  proofId: string
+  proofId: string | null
   verifiedAt: string
+  identityCommitment?: string | null
 }
 
 type AuditRecord = {
@@ -78,6 +81,7 @@ type AuditRecord = {
   eventType?: string | null
   status?: string | null
   createdAt?: string | null
+  updatedAt?: string | null
   verifiedAt?: string | null
   payload?: Record<string, unknown> | null
   reasons?: unknown
@@ -117,12 +121,13 @@ const decisionStyles: Record<TrustDecision, string> = {
   deny: "border-rose-400/20 bg-rose-400/10 text-rose-50",
 }
 
+const EXPLORER_BASE_URL = "https://testnet.hsk.xyz"
+
 export function NebulaDashboard() {
   const { address } = useAccount()
   const chainId = useChainId()
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
-  const { signMessageAsync } = useSignMessage()
-  const { writeContract, data: txHash, isPending: isWriting } = useWriteContract()
+  const { writeContract, writeContractAsync, data: txHash, isPending: isWriting } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
 
   const [state, setState] = useState<TrustInput>({
@@ -229,25 +234,17 @@ export function NebulaDashboard() {
     },
   })
 
-  const runBrowserProof = async () => {
+  const runSemaphoreProof = async () => {
     if (!address) return
 
     setIsGeneratingProof(true)
+    setBrowserProofMessage("")
     try {
       if (chainId !== hashkeyTestnet.id) {
         await switchChainAsync?.({ chainId: hashkeyTestnet.id })
       }
 
-      const proof = createBrowserProof({
-        address,
-        chainId: hashkeyTestnet.id,
-        protocol: state.protocol,
-        trustBand: state.reputationBand,
-      })
-
-      const signature = await signMessageAsync({ message: proof.message })
-      setBrowserProofMessage(proof.message)
-      setProofMeta({ proofId: proof.proofId, issuedAt: proof.issuedAt })
+      const identity = getOrCreateSemaphoreIdentity(address)
 
       const response = await fetch("/api/trust/verify", {
         method: "POST",
@@ -258,22 +255,117 @@ export function NebulaDashboard() {
           ...state,
           wallet: address,
           proofLibrary: defaultProofLibrary,
-          proofId: proof.proofId,
-          proof: {
-            message: proof.message,
-            signature,
-            nonce: proof.nonce,
-            issuedAt: proof.issuedAt,
-          },
+          identityCommitment: identity.commitment.toString(),
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Unable to verify browser proof")
+        throw new Error("Unable to verify trust request")
       }
 
       const data = (await response.json()) as DashboardResult
-      setResult(data)
+      const baseProofId = data.identityCommitment ?? identity.commitment.toString()
+      setResult({
+        ...data,
+        proofId: baseProofId,
+      })
+
+      if (data.decision !== "allow") {
+        setProofMeta({
+          proofId: baseProofId,
+          issuedAt: data.verifiedAt,
+        })
+        setBrowserProofMessage("Policy rejected before Semaphore proof generation.")
+        void loadAuditFeed()
+        return
+      }
+
+      const groupResponse = await fetch(
+        `/api/semaphore/group?protocol=${encodeURIComponent(state.protocol)}&policyVersion=${encodeURIComponent(
+          data.policyVersion,
+        )}`,
+      )
+
+      if (!groupResponse.ok) {
+        throw new Error("Unable to load Semaphore group")
+      }
+
+      const groupPayload = (await groupResponse.json()) as {
+        commitments: Array<string | bigint>
+        policyVersion: string
+        protocol: TrustProtocol
+        scope: string
+        root: string
+        depth: number
+      }
+
+      const proofBundle = await generateSemaphoreProofBundle({
+        wallet: address,
+        protocol: state.protocol,
+        policyVersion: data.policyVersion,
+        trustScore: data.trustScore,
+        groupCommitments: groupPayload.commitments,
+      })
+
+      const localVerification = await verifySemaphoreProofBundle(proofBundle.proof)
+      if (!localVerification) {
+        throw new Error("Semaphore proof failed local verification")
+      }
+
+      const proofResponse = await fetch("/api/semaphore/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          wallet: address,
+          protocol: state.protocol,
+          policyVersion: data.policyVersion,
+          scope: proofBundle.scope,
+          message: proofBundle.message,
+          proof: proofBundle.proof,
+        }),
+      })
+
+      if (!proofResponse.ok) {
+        throw new Error("Semaphore proof verification failed")
+      }
+
+      setProofMeta({
+        proofId: proofBundle.proof.nullifier,
+        issuedAt: new Date().toISOString(),
+      })
+      setBrowserProofMessage(
+        [
+          `scope: ${proofBundle.scope}`,
+          `message: ${proofBundle.message}`,
+          `groupRoot: ${proofBundle.groupRoot}`,
+          `groupDepth: ${proofBundle.groupDepth}`,
+          `nullifier: ${proofBundle.proof.nullifier}`,
+        ].join("\n"),
+      )
+      setResult((current) =>
+        current
+          ? {
+              ...current,
+              proofId: proofBundle.proof.nullifier,
+            }
+          : current,
+      )
+
+      if (nebulaTrustVerifierAddress !== "0x0000000000000000000000000000000000000000") {
+        try {
+          await writeContractAsync({
+            address: nebulaTrustVerifierAddress,
+            abi: trustVerifierAbi,
+            functionName: "useNullifier",
+            args: [proofBundle.proof.nullifier as `0x${string}`],
+          })
+        } catch (nullifierError) {
+          console.warn("Unable to register Semaphore nullifier (non-critical)", nullifierError)
+        }
+      }
+
       void loadAuditFeed()
     } catch (error) {
       console.error(error)
@@ -283,7 +375,7 @@ export function NebulaDashboard() {
   }
 
   const writeDecisionToChain = async () => {
-    if (!result || !address || !hasNebulaTrustGate) return
+    if (!result || !address || !hasNebulaTrustGate || !result.proofId) return
 
     const proofIdBytes32 = keccak256(stringToHex(result.proofId))
     const decisionCode = result.decision === "deny" ? 0 : result.decision === "review" ? 1 : 2
@@ -317,24 +409,24 @@ export function NebulaDashboard() {
                 Nebula dashboard
               </Badge>
               <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight md:text-6xl">
-                Policy control, browser proof generation, and HashKey Chain writes in one place.
+                Policy control, Semaphore proof generation, and HashKey Chain writes in one place.
               </h1>
               <p className="mt-6 max-w-2xl text-pretty text-base leading-8 text-slate-300 md:text-lg">
-                This page is for protocol operators. It previews the decision engine, generates a signed browser proof,
+                This page is for protocol operators. It previews the decision engine, generates a Semaphore proof,
                 and writes the decision to HashKey testnet when a contract address is configured.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button
-                  onClick={runBrowserProof}
+                  onClick={runSemaphoreProof}
                   disabled={!address || isSwitchingChain || isGeneratingProof}
                   className="rounded-full bg-white px-6 text-slate-950 hover:bg-emerald-100"
                 >
                   {isSwitchingChain
                     ? "Switching to HashKey..."
                     : isGeneratingProof
-                      ? "Generating browser proof..."
-                      : "Generate browser proof"}
+                      ? "Generating Semaphore proof..."
+                      : "Generate Semaphore proof"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 <Button
@@ -592,15 +684,15 @@ export function NebulaDashboard() {
 
               <div className="flex flex-wrap gap-3">
                 <Button
-                  onClick={runBrowserProof}
+                  onClick={runSemaphoreProof}
                   disabled={!address || isSwitchingChain || isGeneratingProof}
                   className="rounded-full bg-white px-6 text-slate-950 hover:bg-emerald-100"
                 >
                   {isSwitchingChain
                     ? "Switching to HashKey..."
                     : isGeneratingProof
-                      ? "Generating browser proof..."
-                      : "Generate browser proof"}
+                      ? "Generating Semaphore proof..."
+                      : "Generate Semaphore proof"}
                 </Button>
                 <Button
                   onClick={publishPolicyVersion}
@@ -615,6 +707,26 @@ export function NebulaDashboard() {
               {(isWriting || isConfirming || isConfirmed) && (
                 <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-300">
                   {isWriting || isConfirming ? "Writing transaction to HashKey testnet..." : "Transaction confirmed on-chain."}
+                  {txHash && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <a
+                        href={`${EXPLORER_BASE_URL}/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-emerald-300 hover:underline"
+                      >
+                        View on Blockscout ↗
+                      </a>
+                      <a
+                        href={`${EXPLORER_BASE_URL}/address/${address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-emerald-300 hover:underline"
+                      >
+                        View wallet on Blockscout ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -624,7 +736,7 @@ export function NebulaDashboard() {
             <CardHeader>
               <CardTitle className="text-2xl">Proof and decision payload</CardTitle>
               <CardDescription className="text-slate-300">
-                The dashboard produces a browser proof, evaluates it, and prepares a write payload.
+                The dashboard produces a Semaphore proof, evaluates it, and prepares a write payload.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -673,7 +785,7 @@ export function NebulaDashboard() {
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Browser proof payload</p>
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Semaphore proof payload</p>
                     <div className="mt-3 space-y-2 text-xs text-slate-300">
                       <p>proofId: {result.proofId}</p>
                       <p>wallet: {result.wallet}</p>
@@ -681,7 +793,7 @@ export function NebulaDashboard() {
                       <p>proofLibrary: {result.proofLibrary}</p>
                       {proofMeta ? (
                         <>
-                          <p>browserProofId: {proofMeta.proofId}</p>
+                          <p>semaphoreNullifier: {proofMeta.proofId}</p>
                           <p>issuedAt: {proofMeta.issuedAt}</p>
                         </>
                       ) : null}
@@ -689,7 +801,7 @@ export function NebulaDashboard() {
                     <Separator className="my-4 bg-white/10" />
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Proof message</p>
                     <pre className="mt-3 max-h-40 overflow-auto rounded-2xl bg-black/30 p-4 text-[11px] text-slate-200">
-{browserProofMessage || "Generate a browser proof to inspect the SIWE message."}
+{browserProofMessage || "Generate a Semaphore proof to inspect the scope and message."}
                     </pre>
                   </div>
 
@@ -712,7 +824,7 @@ export function NebulaDashboard() {
                 </>
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/60 p-6 text-sm text-slate-400">
-                  Generate a browser proof to see the policy evaluation and on-chain payload.
+                  Generate a Semaphore proof to see the policy evaluation and on-chain payload.
                 </div>
               )}
             </CardContent>
