@@ -1,0 +1,57 @@
+{
+  "name": "@nebulaid/gateway-sdk",
+  "version": "0.1.0",
+  "description": "NebulaID Gateway SDK - Integrate trust verification, Semaphore proofs, and on-chain enforcement into your dApp",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client/index.js",
+      "types": "./dist/client/index.d.ts"
+    },
+    "./contracts": {
+      "import": "./dist/contracts/index.js",
+      "types": "./dist/contracts/index.d.ts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks/index.js",
+      "types": "./dist/hooks/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "pnpm build && node --input-type=module -e \"import('./dist/index.js').then(() => console.log('sdk smoke ok'))\""
+  },
+  "dependencies": {
+    "viem": "^2.0.0",
+    "@semaphore-protocol/group": "^4.0.0",
+    "@semaphore-protocol/identity": "^4.0.0",
+    "@semaphore-protocol/proof": "^4.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/react": "^18.0.0"
+  },
+  "keywords": [
+    "trust",
+    "zk",
+    "semaphore",
+    "hashkey",
+    "defi",
+    "identity",
+    "reputation",
+    "nebulaid"
+  ],
+  "author": "NebulaID",
+  "license": "MIT"
+}
