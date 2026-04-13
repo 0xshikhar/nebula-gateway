@@ -114,3 +114,38 @@ model AuditEvent {
 
   @@index([eventType, createdAt])
 }
+
+model SemaphoreMember {
+  id            String   @id @default(cuid())
+  wallet        String
+  protocol      String
+  policyVersion String
+  commitment    String
+  decision      String?
+  trustScore    Int?
+  bandLabel     String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([protocol, policyVersion, commitment])
+  @@index([wallet, protocol])
+  @@index([protocol, policyVersion, active])
+}
+
+model SemaphoreProofEvent {
+  id            String   @id @default(cuid())
+  wallet        String
+  protocol      String
+  policyVersion String
+  scope         String
+  message       String
+  nullifier     String   @unique
+  merkleRoot    String
+  merkleDepth   Int
+  proof         Json
+  createdAt     DateTime @default(now())
+
+  @@index([wallet, protocol])
+  @@index([policyVersion, scope])
+}
