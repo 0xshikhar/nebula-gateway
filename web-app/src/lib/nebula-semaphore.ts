@@ -10,6 +10,8 @@ export type SemaphoreProofBundle = {
   identityCommitment: string
   scope: string
   message: string
+  scopeHash: string
+  messageHash: string
   groupRoot: string
   groupDepth: number
   proof: SemaphoreProof
@@ -27,6 +29,10 @@ export function getSemaphoreScope(protocol: TrustProtocol, policyVersion: string
 
 export function getSemaphoreMessage(protocol: TrustProtocol, policyVersion: string, trustScore: number) {
   return `nebula:${protocol}:${policyVersion}:trust:${trustScore}`
+}
+
+function toBytes32(value: string) {
+  return keccak256(stringToHex(value))
 }
 
 export function getOrCreateSemaphoreIdentity(wallet: string): Identity {
@@ -72,12 +78,35 @@ export async function generateSemaphoreProofBundle(input: {
   const group = buildSemaphoreGroup([identity.commitment, ...input.groupCommitments])
   const scope = getSemaphoreScope(input.protocol, input.policyVersion)
   const message = getSemaphoreMessage(input.protocol, input.policyVersion, input.trustScore)
-  const proof = await generateProof(identity, group, message, scope, Math.max(16, group.depth))
+  const scopeHash = toBytes32(scope)
+  const messageHash = toBytes32(message)
+
+  console.info("[semaphore] proof generation start", {
+    wallet: input.wallet,
+    protocol: input.protocol,
+    policyVersion: input.policyVersion,
+    trustScore: input.trustScore,
+    groupSize: group.size,
+    groupDepth: group.depth,
+    scopeHash,
+    messageHash,
+  })
+
+  const proof = await generateProof(identity, group, messageHash, scopeHash, Math.max(16, group.depth))
+
+  console.info("[semaphore] proof generation complete", {
+    identityCommitment: identity.commitment.toString(),
+    groupRoot: group.root.toString(),
+    nullifier: proof.nullifier,
+    trapdoor: proof.trapdoor,
+  })
 
   return {
     identityCommitment: identity.commitment.toString(),
     scope,
     message,
+    scopeHash,
+    messageHash,
     groupRoot: group.root.toString(),
     groupDepth: group.depth,
     proof,
@@ -85,5 +114,17 @@ export async function generateSemaphoreProofBundle(input: {
 }
 
 export async function verifySemaphoreProofBundle(proof: SemaphoreProof) {
-  return verifyProof(proof)
+  console.info("[semaphore] proof verification start", {
+    merkleTreeRoot: proof.merkleTreeRoot?.toString?.() ?? String(proof.merkleTreeRoot),
+    nullifier: proof.nullifier,
+  })
+
+  const verified = await verifyProof(proof)
+
+  console.info("[semaphore] proof verification complete", {
+    verified,
+    nullifier: proof.nullifier,
+  })
+
+  return verified
 }

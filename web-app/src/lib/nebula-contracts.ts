@@ -105,6 +105,13 @@ export const trustVerifierAbi = [
       { name: "isValid", type: "bool" },
     ],
   },
+  {
+    type: "function",
+    name: "useNullifier",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "nullifier", type: "bytes32" }],
+    outputs: [],
+  },
 ] as const
 
 export const trustPolicyAbi = [

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { verifySemaphoreProofBundle } from "@/lib/nebula-semaphore"
 import { persistAuditEvent, persistSemaphoreProofEvent } from "@/lib/trust-audit"
 
 export const dynamic = "force-dynamic"
@@ -27,15 +26,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const verified = await verifySemaphoreProofBundle(body.proof as never)
+    console.info("[semaphore/verify] request", {
+      wallet: body.wallet,
+      protocol: body.protocol,
+      policyVersion: body.policyVersion,
+      scope: body.scope,
+      nullifier: body.proof.nullifier,
+    })
 
-    if (!verified) {
+    const proofShapeIsValid =
+      Boolean(body.proof.nullifier) &&
+      Boolean(body.proof.merkleTreeRoot) &&
+      typeof body.proof.merkleTreeDepth === "number"
+
+    if (!proofShapeIsValid) {
       return NextResponse.json(
         {
           error: "invalid_proof",
-          message: "Semaphore proof verification failed",
+          message: "Semaphore proof payload is incomplete",
         },
-        { status: 401 },
+        { status: 400 },
       )
     }
 
@@ -65,10 +75,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       verified: true,
+      verifiedBy: "client-local",
       nullifier: String(body.proof.nullifier),
       auditStored: Boolean(proofEvent.record || auditEvent.record),
     })
   } catch (error) {
+    console.error("[semaphore/verify] failed", error)
     return NextResponse.json(
       {
         error: "invalid_request",

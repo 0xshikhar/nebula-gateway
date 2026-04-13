@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    console.info("[semaphore/group] request", { protocol, policyVersion })
     const members = await prisma.semaphoreMember
       .findMany({
         where: {
@@ -49,6 +50,16 @@ export async function GET(request: NextRequest) {
     )
 
     const group = buildSemaphoreGroup(commitments)
+
+    console.info("[semaphore/group] built", {
+      protocol,
+      policyVersion,
+      source: members.length > 0 ? "database" : "demo",
+      memberCount: members.length,
+      commitmentCount: commitments.length,
+      depth: group.depth,
+      root: group.root.toString(),
+    })
 
     return NextResponse.json({
       protocol,
