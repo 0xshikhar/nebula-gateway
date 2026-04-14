@@ -24,7 +24,7 @@ reviewed, or denied without exposing raw identity data.
 
 ## Key inputs
 
-- RPC: `https://testnet.hsk.xyz`
+- RPC: `https://testnet-explorer.hsk.xyz`
 - Explorer: `https://testnet-explorer.hsk.xyz`
 - Default proof library: `Semaphore`
 - Deployment target: `Vercel`

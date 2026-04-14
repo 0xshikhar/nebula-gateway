@@ -122,7 +122,7 @@ const decisionStyles: Record<TrustDecision, string> = {
   deny: "border-rose-400/20 bg-rose-400/10 text-rose-50",
 }
 
-const EXPLORER_BASE_URL = "https://testnet.hsk.xyz"
+const EXPLORER_BASE_URL = "https://testnet-explorer.hsk.xyz"
 
 export function NebulaDashboard() {
   const { address } = useAccount()
@@ -452,7 +452,7 @@ export function NebulaDashboard() {
 
               <div className="mt-8 flex flex-wrap gap-3 text-xs text-slate-300">
                 <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
-                  HashKey RPC: https://testnet.hsk.xyz
+                  HashKey RPC: https://testnet-explorer.hsk.xyz
                 </Badge>
                 <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
                   Explorer: Blockscout
