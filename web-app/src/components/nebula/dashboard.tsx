@@ -38,6 +38,7 @@ import {
   generateSemaphoreProofBundle,
   getOrCreateSemaphoreIdentity,
   verifySemaphoreProofBundle,
+  toSemaphoreBytes32,
 } from "@/lib/nebula-semaphore"
 import {
   defaultProofLibrary,
@@ -141,6 +142,13 @@ export function NebulaDashboard() {
   const [proofMeta, setProofMeta] = useState<{ proofId: string; issuedAt: string } | null>(null)
   const [browserProofMessage, setBrowserProofMessage] = useState<string>("")
   const [isGeneratingProof, setIsGeneratingProof] = useState(false)
+  const [nullifierTxHash, setNullifierTxHash] = useState<string | null>(null)
+  const { isLoading: isNullifierConfirming, isSuccess: isNullifierConfirmed } = useWaitForTransactionReceipt({
+    hash: nullifierTxHash as `0x${string}` | undefined,
+    query: {
+      enabled: Boolean(nullifierTxHash),
+    },
+  })
   const [auditFeed, setAuditFeed] = useState<AuditFeed | null>(null)
   const [isAuditLoading, setIsAuditLoading] = useState(false)
   const [auditError, setAuditError] = useState<string | null>(null)
@@ -239,6 +247,7 @@ export function NebulaDashboard() {
 
     setIsGeneratingProof(true)
     setBrowserProofMessage("")
+    setNullifierTxHash(null)
     try {
       if (chainId !== hashkeyTestnet.id) {
         await switchChainAsync?.({ chainId: hashkeyTestnet.id })
@@ -355,12 +364,14 @@ export function NebulaDashboard() {
 
       if (nebulaTrustVerifierAddress !== "0x0000000000000000000000000000000000000000") {
         try {
-          await writeContractAsync({
+          const nullifierBytes32 = toSemaphoreBytes32(proofBundle.proof.nullifier)
+          const txHash = await writeContractAsync({
             address: nebulaTrustVerifierAddress,
             abi: trustVerifierAbi,
             functionName: "useNullifier",
-            args: [proofBundle.proof.nullifier as `0x${string}`],
+            args: [nullifierBytes32],
           })
+          setNullifierTxHash(txHash)
         } catch (nullifierError) {
           console.warn("Unable to register Semaphore nullifier (non-critical)", nullifierError)
         }
@@ -821,6 +832,28 @@ export function NebulaDashboard() {
 )}
                     </pre>
                   </div>
+
+                  {(isNullifierConfirming || isNullifierConfirmed || nullifierTxHash) && (
+                    <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-50">
+                      <p className="text-xs uppercase tracking-[0.24em] text-emerald-200">On-chain registration</p>
+                      <div className="mt-2 space-y-2">
+                        {isNullifierConfirming ? (
+                          <p className="text-xs text-emerald-200">Writing nullifier transaction to HashKey testnet...</p>
+                        ) : null}
+                        {isNullifierConfirmed ? <p className="text-xs text-emerald-200">Transaction confirmed on-chain.</p> : null}
+                        {nullifierTxHash ? (
+                          <a
+                            href={`${EXPLORER_BASE_URL}/tx/${nullifierTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-emerald-200 hover:underline"
+                          >
+                            View nullifier transaction on Blockscout ↗
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/60 p-6 text-sm text-slate-400">

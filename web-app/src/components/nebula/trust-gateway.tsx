@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { useAccount, useChainId, useSwitchChain, useWriteContract, useDisconnect } from "wagmi"
+import { useAccount, useChainId, useSwitchChain, useWriteContract, useDisconnect, useWaitForTransactionReceipt } from "wagmi"
 import {
   ArrowRight,
   BadgeCheck,
@@ -44,6 +44,7 @@ import {
   generateSemaphoreProofBundle,
   getOrCreateSemaphoreIdentity,
   verifySemaphoreProofBundle,
+  toSemaphoreBytes32,
 } from "@/lib/nebula-semaphore"
 
 type ResultState = ReturnType<typeof evaluateTrust> & {
@@ -71,6 +72,8 @@ const decisionStyles: Record<TrustDecision, string> = {
   deny: "border-rose-400/20 bg-rose-400/10 text-rose-50",
 }
 
+const EXPLORER_BASE_URL = "https://testnet.hsk.xyz"
+
 export function TrustGateway() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
@@ -83,6 +86,14 @@ export function TrustGateway() {
   const [proofPreview, setProofPreview] = useState<{ proofId: string; issuedAt: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [nullifierTxHash, setNullifierTxHash] = useState<string | null>(null)
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: nullifierTxHash as `0x${string}` | undefined,
+    query: {
+      enabled: Boolean(nullifierTxHash),
+    },
+  })
+  const nullifierTxUrl = nullifierTxHash ? `${EXPLORER_BASE_URL}/tx/${nullifierTxHash}` : null
 
   const connectedWallet = address || form.wallet
 
@@ -131,6 +142,9 @@ export function TrustGateway() {
     setError(null)
     setValidationErrors({})
     setIsLoading(true)
+    setResult(null)
+    setProofPreview(null)
+    setNullifierTxHash(null)
     console.info("[semaphore] trust-gateway verification started", {
       wallet: connectedWallet,
       protocol: form.protocol,
@@ -282,15 +296,19 @@ export function TrustGateway() {
 
       if (nebulaTrustVerifierAddress !== "0x0000000000000000000000000000000000000000") {
         try {
-          await writeContractAsync({
+          const nullifierBytes32 = toSemaphoreBytes32(proofBundle.proof.nullifier)
+          const tx = await writeContractAsync({
             address: nebulaTrustVerifierAddress,
             abi: trustVerifierAbi,
             functionName: "useNullifier",
-            args: [proofBundle.proof.nullifier as `0x${string}`],
+            args: [nullifierBytes32],
           })
+          setNullifierTxHash(tx)
           console.info("[semaphore] nullifier registered on-chain", {
             wallet: connectedWallet,
             nullifier: proofBundle.proof.nullifier,
+            nullifierBytes32,
+            txHash: tx,
           })
         } catch (nullifierError) {
           console.warn("Unable to register nullifier (non-critical)", nullifierError)
@@ -510,6 +528,99 @@ export function TrustGateway() {
                     </div>
                   </div>
                 ) : null}
+
+                {(nullifierTxHash || isConfirming || isConfirmed) && (
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm">
+                    <p className="text-xs uppercase tracking-[0.24em] text-emerald-200">On-chain registration</p>
+                    <div className="mt-2 space-y-2">
+                      {isConfirming && (
+                        <p className="text-xs text-emerald-300">Confirming transaction on HashKey testnet...</p>
+                      )}
+                      {isConfirmed && (
+                        <p className="text-xs text-emerald-300">Transaction confirmed!</p>
+                      )}
+                      {nullifierTxHash && (
+                        <div className="flex flex-wrap gap-3">
+                          <a
+                            href={nullifierTxUrl ?? "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-emerald-300 hover:underline"
+                          >
+                            View transaction on Blockscout ↗
+                          </a>
+                          <a
+                            href={`${EXPLORER_BASE_URL}/address/${nebulaTrustVerifierAddress}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-emerald-300 hover:underline"
+                          >
+                            View contract on Blockscout ↗
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {(result || proofPreview || nullifierTxHash) && (
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-300">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Verification trail</p>
+                    <div className="mt-3 space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-white">1. Trust API</p>
+                          <p className="text-xs text-slate-400">
+                            {result
+                              ? `Decision ${result.decision} for ${result.protocol} using policy ${result.policyVersion}.`
+                              : "Waiting for trust evaluation."}
+                          </p>
+                        </div>
+                        {result ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-300" /> : <Clock3 className="mt-0.5 h-4 w-4 text-slate-500" />}
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-white">2. Semaphore proof</p>
+                          <p className="text-xs text-slate-400">
+                            {proofPreview
+                              ? `Generated proof ${proofPreview.proofId} and stored it through /api/semaphore/verify.`
+                              : "Waiting for proof generation."}
+                          </p>
+                        </div>
+                        {proofPreview ? (
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-300" />
+                        ) : (
+                          <Clock3 className="mt-0.5 h-4 w-4 text-slate-500" />
+                        )}
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-white">3. Nullifier transaction</p>
+                          <p className="text-xs text-slate-400">
+                            {nullifierTxHash
+                              ? `Registered on-chain as ${nullifierTxHash}.`
+                              : "No on-chain transaction yet."}
+                          </p>
+                          {nullifierTxUrl ? (
+                            <a
+                              href={nullifierTxUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-300 hover:underline"
+                            >
+                              Open transaction in Blockscout ↗
+                            </a>
+                          ) : null}
+                        </div>
+                        {nullifierTxHash ? (
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-300" />
+                        ) : (
+                          <Clock3 className="mt-0.5 h-4 w-4 text-slate-500" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

@@ -2,7 +2,7 @@ import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
 import { generateProof, verifyProof } from "@semaphore-protocol/proof"
 import type { SemaphoreProof } from "@semaphore-protocol/proof"
-import { keccak256, stringToHex } from "viem"
+import { keccak256, stringToHex, toHex } from "viem"
 
 import type { TrustProtocol } from "@/lib/nebula-trust"
 
@@ -57,6 +57,10 @@ export function getSemaphoreDemoCommitments(protocol: TrustProtocol, policyVersi
     keccak256(stringToHex(`nebula:${protocol}:${policyVersion}:demo:1`)),
     keccak256(stringToHex(`nebula:${protocol}:${policyVersion}:demo:2`)),
   ]
+}
+
+export function toSemaphoreBytes32(value: string | bigint | number) {
+  return toHex(BigInt(value), { size: 32 })
 }
 
 export function buildSemaphoreGroup(commitments: Array<string | bigint>) {
