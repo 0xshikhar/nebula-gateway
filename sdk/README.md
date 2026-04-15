@@ -13,17 +13,17 @@ yarn add @nebulaid/gateway-sdk
 ## Quick Start
 
 ```typescript
-import { createGatewayClient, HASHKEY_TESTNET, DEPLOYED_CONTRACTS } from "@nebulaid/gateway-sdk"
+import { createTrustClient, HASHKEY_TESTNET, DEPLOYED_CONTRACTS, defaultProofLibrary } from "@nebulaid/gateway-sdk"
 
 // Initialize the client
-const gatewayClient = createGatewayClient({
+const trustClient = createTrustClient({
   apiBaseUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
   chainId: HASHKEY_TESTNET.id,
   contracts: DEPLOYED_CONTRACTS,
 })
 
 // Verify trust
-const result = await gatewayClient.verify({
+const result = await trustClient.verify({
   wallet: "0x1234...",
   protocol: "vault",
   reputationBand: 4,
@@ -31,8 +31,7 @@ const result = await gatewayClient.verify({
   cohortMember: true,
   credentialVerified: true,
   expired: false,
-  proofLibrary: "semaphore",
-  proofId: "",
+  proofLibrary: defaultProofLibrary,
 })
 
 console.log(result.decision) // "allow" | "review" | "deny"
@@ -40,15 +39,33 @@ console.log(result.trustScore) // 0-100
 console.log(result.bandLabel) // "Bronze" | "Silver" | "Gold" | "Platinum"
 ```
 
-## Three Integration Surfaces
-
-### 1. Gateway API Client
+### Local trust evaluation
 
 ```typescript
-import { createGatewayClient } from "@nebulaid/gateway-sdk/client"
+import { evaluateTrust } from "@nebulaid/gateway-sdk"
+
+const decision = evaluateTrust({
+  wallet: "0x1234...",
+  protocol: "vault",
+  reputationBand: 4,
+  humanProof: true,
+  cohortMember: true,
+  credentialVerified: true,
+  expired: false,
+})
+
+console.log(decision.decision)
+```
+
+## Three Integration Surfaces
+
+### 1. Trust API Client
+
+```typescript
+import { createTrustClient } from "@nebulaid/gateway-sdk/client"
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
-const client = createGatewayClient({ apiBaseUrl: apiUrl })
+const client = createTrustClient({ apiBaseUrl: apiUrl })
 
 // Verify trust eligibility
 const result = await client.verify({
@@ -57,8 +74,16 @@ const result = await client.verify({
   // ... other signals
 })
 
-// Get on-chain trust score
-const score = await client.getTrustScore("0x...")
+// Get trust score using the same policy inputs
+const score = await client.score({
+  wallet: "0x...",
+  protocol: "vault",
+  reputationBand: 4,
+  humanProof: true,
+  cohortMember: true,
+  credentialVerified: true,
+  expired: false,
+})
 
 // Fetch audit trail
 const audit = await client.getAuditTrail()
@@ -67,7 +92,7 @@ const audit = await client.getAuditTrail()
 ### 2. React Hooks
 
 ```tsx
-import { useTrustScore, useAuditTrail, useSemaphoreProof, createIdentity } from "@nebulaid/gateway-sdk/hooks"
+import { useTrustScore, useAuditTrail, useSemaphoreProof, getOrCreateSemaphoreIdentity } from "@nebulaid/gateway-sdk/hooks"
 
 function VaultAccess() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
@@ -76,7 +101,7 @@ function VaultAccess() {
 
   const handleVerify = async () => {
     // Get or create Semaphore identity for this wallet
-    const identity = createIdentity("0x1234...")
+    const identity = getOrCreateSemaphoreIdentity("0x1234...")
     
     // First verify trust
     const trustResult = await verify({
@@ -118,6 +143,7 @@ function VaultAccess() {
 | `useAuditTrail(apiBaseUrl)` | Fetch verification/audit history |
 | `useSemaphoreProof(apiBaseUrl)` | Generate Semaphore ZK proof |
 | `createIdentity(wallet)` | Get or create persistent Semaphore identity |
+| `getOrCreateSemaphoreIdentity(wallet)` | Alias for `createIdentity(wallet)` |
 
 ### 3. Contract Bindings
 
@@ -126,6 +152,7 @@ import {
   trustVerifierAbi, 
   DEPLOYED_CONTRACTS,
   createUseNullifierData,
+  normalizeBytes32,
   HASHKEY_TESTNET 
 } from "@nebulaid/gateway-sdk/contracts"
 import { writeContract } from "wagmi"
@@ -135,7 +162,7 @@ await writeContract({
   address: DEPLOYED_CONTRACTS.TrustVerifier,
   abi: trustVerifierAbi,
   functionName: "useNullifier",
-  args: ["0x..."], // the nullifier from proof
+  args: [normalizeBytes32(proofResult.nullifier)],
 })
 ```
 
@@ -143,8 +170,8 @@ await writeContract({
 
 ```tsx
 import { useAccount } from "wagmi"
-import { useTrustScore, useSemaphoreProof, createIdentity } from "@nebulaid/gateway-sdk/hooks"
-import { trustVerifierAbi, DEPLOYED_CONTRACTS } from "@nebulaid/gateway-sdk/contracts"
+import { useTrustScore, useSemaphoreProof, getOrCreateSemaphoreIdentity } from "@nebulaid/gateway-sdk/hooks"
+import { trustVerifierAbi, DEPLOYED_CONTRACTS, normalizeBytes32 } from "@nebulaid/gateway-sdk/contracts"
 
 function MyComponent() {
   const { address } = useAccount()
@@ -156,7 +183,7 @@ function MyComponent() {
     if (!address) return
 
     // 1. Get or create Semaphore identity
-    const identity = createIdentity(address)
+    const identity = getOrCreateSemaphoreIdentity(address)
 
     // 2. Verify trust
     const trustResult = await verify({
@@ -188,7 +215,7 @@ function MyComponent() {
       address: DEPLOYED_CONTRACTS.TrustVerifier,
       abi: trustVerifierAbi,
       functionName: "useNullifier",
-      args: [proofResult.nullifier as `0x${string}`],
+      args: [normalizeBytes32(proofResult.nullifier)],
     })
 
     console.log("Access granted! Proof ID:", proofResult.nullifier)
