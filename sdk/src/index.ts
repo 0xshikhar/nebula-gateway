@@ -1,5 +1,13 @@
-export { GatewayClient, createGatewayClient, SemaphoreClient, createSemaphoreClient } from "./client/index.js"
-export { useTrustScore, useAuditTrail, useSemaphoreProof, createIdentity } from "./hooks/index.js"
+export { TrustClient, createTrustClient, GatewayClient, createGatewayClient, SemaphoreClient, createSemaphoreClient, DEFAULT_API_URL } from "./client/index.js"
+export { useTrustScore, useAuditTrail, useSemaphoreProof, createIdentity, getOrCreateSemaphoreIdentity } from "./hooks/index.js"
+export {
+  evaluateTrust,
+  getTrustPolicy,
+  protocolPresets,
+  trustPolicyCatalog,
+  defaultProofLibrary,
+  policyVersion,
+} from "./trust-engine.js"
 export {
   trustVerifierAbi,
   trustPolicyAbi,
@@ -16,9 +24,16 @@ export {
 export type {
   TrustProtocol,
   TrustDecision,
+  TrustProofLibrary,
   TrustInput,
   TrustResult,
+  TrustScoreResult,
+  TrustAuditTrail,
   TrustPolicy,
+  TrustPolicyProfile,
+  TrustSignalBreakdown,
+  TrustGateCondition,
+  TrustSignalContribution,
   SemaphoreProof,
   OnChainDecision,
   SDKConfig,

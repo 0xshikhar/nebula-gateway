@@ -3,7 +3,10 @@ import { Group } from "@semaphore-protocol/group"
 import { Identity } from "@semaphore-protocol/identity"
 import { generateProof, verifyProof } from "@semaphore-protocol/proof"
 import { keccak256, stringToHex } from "viem"
+import { defaultProofLibrary } from "../trust-engine.js"
 import type { TrustProtocol, TrustDecision, SemaphoreProof, SDKConfig } from "../types/index.js"
+
+export const DEFAULT_API_URL = "https://nebulaid-gateway.vercel.app"
 
 type TrustInput = {
   wallet: string
@@ -13,6 +16,8 @@ type TrustInput = {
   cohortMember: boolean
   credentialVerified: boolean
   expired: boolean
+  proofLibrary?: string
+  proofId?: string
 }
 
 type TrustResult = {
@@ -60,7 +65,8 @@ const PROTOCOL_PRESETS = {
   },
 }
 
-export function useTrustScore(apiBaseUrl: string) {
+export function useTrustScore(apiBaseUrl?: string) {
+  const baseUrl = apiBaseUrl ?? DEFAULT_API_URL
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<TrustResult | null>(null)
@@ -72,13 +78,13 @@ export function useTrustScore(apiBaseUrl: string) {
       setResult(null)
 
       try {
-        const response = await fetch(`${apiBaseUrl}/api/trust/verify`, {
+        const response = await fetch(`${baseUrl}/api/trust/verify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...input,
-            proofLibrary: "semaphore",
-            proofId: "",
+            proofLibrary: input.proofLibrary ?? defaultProofLibrary,
+            proofId: input.proofId ?? "",
           }),
         })
 
@@ -109,7 +115,8 @@ export function useTrustScore(apiBaseUrl: string) {
   }
 }
 
-export function useAuditTrail(apiBaseUrl: string) {
+export function useAuditTrail(apiBaseUrl?: string) {
+  const baseUrl = apiBaseUrl ?? DEFAULT_API_URL
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<{
@@ -124,7 +131,7 @@ export function useAuditTrail(apiBaseUrl: string) {
     setError(null)
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/audit?limit=${limit}`)
+      const response = await fetch(`${baseUrl}/api/audit?limit=${limit}`)
 
       if (!response.ok) {
         throw new Error(`Failed to fetch audit trail: ${response.status}`)
@@ -145,7 +152,8 @@ export function useAuditTrail(apiBaseUrl: string) {
   return { refresh, isLoading, error, data }
 }
 
-export function useSemaphoreProof(apiBaseUrl: string) {
+export function useSemaphoreProof(apiBaseUrl?: string) {
+  const baseUrl = apiBaseUrl ?? DEFAULT_API_URL
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [proof, setProof] = useState<SemaphoreProof | null>(null)
@@ -185,11 +193,15 @@ export function useSemaphoreProof(apiBaseUrl: string) {
 
         group.addMember(params.identity.commitment)
 
+        const scopeHash = keccak256(stringToHex(scope))
+        const messageHash = keccak256(stringToHex(message))
+
         const semaphoreProof = await generateProof(
           params.identity,
           group,
-          BigInt(keccak256(stringToHex(scope))),
-          BigInt(keccak256(stringToHex(message))),
+          messageHash,
+          scopeHash,
+          Math.max(16, group.depth),
         )
 
         const verified = await verifyProof(semaphoreProof)
@@ -207,10 +219,12 @@ export function useSemaphoreProof(apiBaseUrl: string) {
           nullifier,
           commitment: params.identity.commitment.toString(),
           root: group.root.toString(),
+          groupRoot: group.root.toString(),
+          groupDepth: group.depth,
           scope,
           message,
-          scopeHash: keccak256(stringToHex(scope)),
-          messageHash: keccak256(stringToHex(message)),
+          scopeHash,
+          messageHash,
           semaphoreProof,
         }
 
@@ -240,7 +254,7 @@ export function createIdentity(wallet: string): Identity {
     throw new Error("Identity can only be created in the browser")
   }
 
-  const key = `nebula:identity:${wallet.toLowerCase()}`
+  const key = `nebula:semaphore:identity:${wallet.toLowerCase()}`
   const stored = window.localStorage.getItem(key)
 
   if (stored) {
@@ -250,4 +264,8 @@ export function createIdentity(wallet: string): Identity {
   const identity = new Identity()
   window.localStorage.setItem(key, identity.export())
   return identity
+}
+
+export function getOrCreateSemaphoreIdentity(wallet: string): Identity {
+  return createIdentity(wallet)
 }
