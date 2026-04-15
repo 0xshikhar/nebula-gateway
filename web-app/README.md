@@ -1,8 +1,8 @@
-# Nebula Trust Gateway
+# Nebula Gateway
 
 Protocol-facing identity infrastructure for HashKey Chain.
 
-Nebula Trust Gateway is a trust layer for DeFi protocols that verifies whether a wallet should be allowed,
+Nebula Gateway is a trust layer for DeFi protocols that verifies whether a wallet should be allowed,
 reviewed, or denied without exposing raw identity data.
 
 ## What this app contains
@@ -38,5 +38,5 @@ pnpm dev
 
 ## Notes
 
-The starter auth and Prisma pieces remain available in the repo, but the Nebula Trust Gateway starts from the new
+The starter auth and Prisma pieces remain available in the repo, but the Nebula Gateway starts from the new
 trust console on the home page.

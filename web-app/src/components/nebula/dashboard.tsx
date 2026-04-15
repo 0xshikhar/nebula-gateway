@@ -253,7 +253,7 @@ export function NebulaDashboard() {
         await switchChainAsync?.({ chainId: hashkeyTestnet.id })
       }
 
-      const identity = getOrCreateSemaphoreIdentity(address)
+      const identity = await getOrCreateSemaphoreIdentity(address)
 
       const response = await fetch("/api/trust/verify", {
         method: "POST",
@@ -341,7 +341,7 @@ export function NebulaDashboard() {
       }
 
       setProofMeta({
-        proofId: proofBundle.proof.nullifier,
+        proofId: String(proofBundle.proof.nullifier),
         issuedAt: new Date().toISOString(),
       })
       setBrowserProofMessage(
@@ -357,7 +357,7 @@ export function NebulaDashboard() {
         current
           ? {
               ...current,
-              proofId: proofBundle.proof.nullifier,
+              proofId: String(proofBundle.proof.nullifier),
             }
           : current,
       )

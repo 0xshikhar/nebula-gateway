@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
-import { getSemaphoreDemoCommitments, getSemaphoreScope, buildSemaphoreGroup } from "@/lib/nebula-semaphore"
+import { getSemaphoreDemoCommitments, getSemaphoreScope, buildSemaphoreGroup } from "@/lib/nebula-semaphore-server"
 import { policyVersion as defaultPolicyVersion, type TrustProtocol } from "@/lib/nebula-trust"
 
 export const dynamic = "force-dynamic"
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       ]),
     )
 
-    const group = buildSemaphoreGroup(commitments)
+    const group = await buildSemaphoreGroup(commitments)
 
     console.info("[semaphore/group] built", {
       protocol,
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     const demoCommitments = getSemaphoreDemoCommitments(protocol, policyVersion)
-    const group = buildSemaphoreGroup(demoCommitments)
+    const group = await buildSemaphoreGroup(demoCommitments)
 
     return NextResponse.json(
       {

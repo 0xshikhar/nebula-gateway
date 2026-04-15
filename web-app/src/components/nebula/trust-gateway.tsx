@@ -165,6 +165,8 @@ export function TrustGateway() {
         await switchChainAsync?.({ chainId: hashkeyTestnet.id })
       }
 
+      const identity = await getOrCreateSemaphoreIdentity(connectedWallet)
+
       const response = await fetch("/api/trust/verify", {
         method: "POST",
         headers: {
@@ -174,7 +176,7 @@ export function TrustGateway() {
           ...form,
           wallet: connectedWallet,
           proofLibrary: defaultProofLibrary,
-          identityCommitment: getOrCreateSemaphoreIdentity(connectedWallet).commitment.toString(),
+          identityCommitment: identity.commitment.toString(),
         }),
       })
 
@@ -279,9 +281,9 @@ export function TrustGateway() {
         nullifier: proofBundle.proof.nullifier,
       })
 
-      updateForm({ proofId: proofBundle.proof.nullifier })
+      updateForm({ proofId: String(proofBundle.proof.nullifier) })
       setProofPreview({
-        proofId: proofBundle.proof.nullifier,
+        proofId: String(proofBundle.proof.nullifier),
         issuedAt: new Date().toISOString(),
       })
 
@@ -289,7 +291,7 @@ export function TrustGateway() {
         current
           ? {
               ...current,
-              proofId: proofBundle.proof.nullifier,
+              proofId: String(proofBundle.proof.nullifier),
             }
           : current,
       )
@@ -336,13 +338,13 @@ export function TrustGateway() {
             <div>
               <Badge className="rounded-full border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-emerald-100">
                 <Sparkles className="mr-2 h-3.5 w-3.5" />
-                Nebula Trust Gateway for HashKey Chain
+                Nebula Gateway for HashKey Chain
               </Badge>
               <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight text-white md:text-6xl">
                 Proof-aware trust for DeFi protocols, without exposing identity.
               </h1>
               <p className="mt-6 max-w-2xl text-pretty text-base leading-8 text-slate-300 md:text-lg">
-                Start the Nebula Trust Gateway on top of the existing Wagmi, Viem, Tailwind, and RainbowKit app.
+                Start the Nebula Gateway on top of the existing Wagmi, Viem, Tailwind, and RainbowKit app.
                 Users connect a wallet, generate a Semaphore proof, and protocols receive a simple
                 `allow`, `review`, or `deny` decision.
               </p>

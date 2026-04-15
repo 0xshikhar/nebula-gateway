@@ -1,10 +1,30 @@
-import { Group } from "@semaphore-protocol/group"
-import { Identity } from "@semaphore-protocol/identity"
-import { generateProof, verifyProof } from "@semaphore-protocol/proof"
-import type { SemaphoreProof } from "@semaphore-protocol/proof"
 import { keccak256, stringToHex, toHex } from "viem"
 
 import type { TrustProtocol } from "@/lib/nebula-trust"
+
+// Local type definition to avoid importing from @semaphore-protocol/proof at module level
+// (that package uses indexedDB which causes SSR errors)
+type SemaphoreProof = {
+  merkleTreeRoot: bigint | string
+  merkleTreeDepth: number
+  nullifier: bigint | string
+  message: bigint | string
+  scope: bigint | string
+  points: unknown
+  trapdoor?: bigint | string
+  proof?: unknown
+}
+
+// Dynamic imports for browser-only semaphore libraries (they use indexedDB)
+async function importGroup() {
+  const { Group } = await import("@semaphore-protocol/group")
+  return Group
+}
+
+async function importIdentity() {
+  const { Identity } = await import("@semaphore-protocol/identity")
+  return Identity
+}
 
 export type SemaphoreProofBundle = {
   identityCommitment: string
@@ -35,11 +55,12 @@ function toBytes32(value: string) {
   return keccak256(stringToHex(value))
 }
 
-export function getOrCreateSemaphoreIdentity(wallet: string): Identity {
+export async function getOrCreateSemaphoreIdentity(wallet: string) {
   if (typeof window === "undefined") {
     throw new Error("Semaphore identities can only be created in the browser")
   }
 
+  const Identity = await importIdentity()
   const key = getIdentityStorageKey(wallet)
   const storedIdentity = window.localStorage.getItem(key)
 
@@ -63,7 +84,8 @@ export function toSemaphoreBytes32(value: string | bigint | number) {
   return toHex(BigInt(value), { size: 32 })
 }
 
-export function buildSemaphoreGroup(commitments: Array<string | bigint>) {
+export async function buildSemaphoreGroup(commitments: Array<string | bigint>) {
+  const Group = await importGroup()
   const members = Array.from(
     new Set(commitments.map((commitment) => commitment.toString()).filter(Boolean)),
   )
@@ -78,8 +100,9 @@ export async function generateSemaphoreProofBundle(input: {
   trustScore: number
   groupCommitments: Array<string | bigint>
 }): Promise<SemaphoreProofBundle> {
-  const identity = getOrCreateSemaphoreIdentity(input.wallet)
-  const group = buildSemaphoreGroup([identity.commitment, ...input.groupCommitments])
+  const { generateProof } = await import("@semaphore-protocol/proof")
+  const identity = await getOrCreateSemaphoreIdentity(input.wallet)
+  const group = await buildSemaphoreGroup([identity.commitment, ...input.groupCommitments])
   const scope = getSemaphoreScope(input.protocol, input.policyVersion)
   const message = getSemaphoreMessage(input.protocol, input.policyVersion, input.trustScore)
   const scopeHash = toBytes32(scope)
@@ -113,16 +136,19 @@ export async function generateSemaphoreProofBundle(input: {
     messageHash,
     groupRoot: group.root.toString(),
     groupDepth: group.depth,
-    proof,
+    proof: proof as SemaphoreProof,
   }
 }
 
 export async function verifySemaphoreProofBundle(proof: SemaphoreProof) {
+  // Import verifyProof dynamically to avoid SSR issues with indexedDB
+  const { verifyProof } = await import("@semaphore-protocol/proof")
   console.info("[semaphore] proof verification start", {
     merkleTreeRoot: proof.merkleTreeRoot?.toString?.() ?? String(proof.merkleTreeRoot),
     nullifier: proof.nullifier,
   })
 
+  // @ts-ignore - Types don't match exactly but the runtime behavior is correct
   const verified = await verifyProof(proof)
 
   console.info("[semaphore] proof verification complete", {
