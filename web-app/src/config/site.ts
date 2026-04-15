@@ -3,13 +3,13 @@ import { SiteConfig } from "@/types"
 import { env } from "@/env.mjs"
 
 export const siteConfig: SiteConfig = {
-  name: "Nebula Trust Gateway",
+  name: " Nebula Gateway",
   author: "NebulaID",
   description:
     "Protocol-facing identity infrastructure for HashKey Chain. Verify trust, reputation, and eligibility without exposing raw identity data.",
   keywords: [
     "HashKey Chain",
-    "Nebula Trust Gateway",
+    "Nebula Gateway",
     "ZKID",
     "Semaphore",
     "wagmi",

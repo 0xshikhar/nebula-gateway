@@ -77,6 +77,7 @@ export function useAuth() {
         };
 
         checkAuth();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [address]);
 
     // Validate the stored token
