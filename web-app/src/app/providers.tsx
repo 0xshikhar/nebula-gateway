@@ -3,40 +3,37 @@
 import "@rainbow-me/rainbowkit/styles.css"
 
 import * as React from "react"
-import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit"
+import { RainbowKitProvider, getWalletConnectConnector } from "@rainbow-me/rainbowkit"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { WagmiProvider } from "wagmi"
+import { WagmiProvider, cookieStorage, createConfig, createStorage, http, injected } from "wagmi"
 
 import { hashkeyTestnet } from "@/lib/customChain"
 
 const projectId = "9811958bd307518b364ff7178034c435"
+const chains = [hashkeyTestnet] as const
 
-const config = getDefaultConfig({
-  appName: "Nebula Trust Gateway",
-  projectId,
-  chains: [hashkeyTestnet],
+const config = createConfig({
+  chains,
+  connectors: [
+    injected({ shimDisconnect: true }),
+    getWalletConnectConnector({ projectId }),
+  ],
+  transports: {
+    [hashkeyTestnet.id]: http(hashkeyTestnet.rpcUrls.default.http[0]),
+  },
   ssr: true,
+  storage: createStorage({
+    storage: cookieStorage,
+  }),
 })
 
 const queryClient = new QueryClient()
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
-
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        {mounted ? (
-          <RainbowKitProvider>
-            {children}
-          </RainbowKitProvider>
-        ) : (
-          <div style={{ visibility: "hidden" }}>{children}</div>
-        )}
+        <RainbowKitProvider>{children}</RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   )

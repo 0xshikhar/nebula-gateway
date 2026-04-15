@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { BadgeCheck, Sparkles } from "lucide-react"
 
 const navItems = [
@@ -41,7 +40,12 @@ export default function Navbar() {
             <BadgeCheck className="h-4 w-4 text-emerald-200" />
             HashKey Chain testnet
           </div>
-          <ConnectButton />
+          <Link
+            href="/demo"
+            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+          >
+            Open demo
+          </Link>
         </div>
       </div>
     </nav>
