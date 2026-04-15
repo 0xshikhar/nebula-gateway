@@ -143,6 +143,7 @@ export function NebulaDashboard() {
   const [browserProofMessage, setBrowserProofMessage] = useState<string>("")
   const [isGeneratingProof, setIsGeneratingProof] = useState(false)
   const [nullifierTxHash, setNullifierTxHash] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const { isLoading: isNullifierConfirming, isSuccess: isNullifierConfirmed } = useWaitForTransactionReceipt({
     hash: nullifierTxHash as `0x${string}` | undefined,
     query: {
@@ -248,6 +249,7 @@ export function NebulaDashboard() {
     setIsGeneratingProof(true)
     setBrowserProofMessage("")
     setNullifierTxHash(null)
+    setError(null)
     try {
       if (chainId !== hashkeyTestnet.id) {
         await switchChainAsync?.({ chainId: hashkeyTestnet.id })
@@ -380,6 +382,7 @@ export function NebulaDashboard() {
       void loadAuditFeed()
     } catch (error) {
       console.error(error)
+      setError(error instanceof Error ? error.message : "Failed to generate proof")
     } finally {
       setIsGeneratingProof(false)
     }
