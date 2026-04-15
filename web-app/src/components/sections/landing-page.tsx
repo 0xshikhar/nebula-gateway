@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useState } from "react"
 
 import { motion } from "framer-motion"
@@ -662,7 +663,7 @@ export default function LandingPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">Nebula Gateway</p>
-              <p className="text-xs uppercase tracking-[0.18em] text-white/40">HashKey Chain + Semaphore</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-white/40">HashKey Chain</p>
             </div>
           </div>
 

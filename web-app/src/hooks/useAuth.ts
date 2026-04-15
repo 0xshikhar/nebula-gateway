@@ -241,7 +241,11 @@ export function useAuth() {
         setHasCheckedExistingUser(false);
         currentAddressRef.current = null;
         isProcessingRef.current = false;
-        disconnect();
+        try {
+            disconnect();
+        } catch {
+            // Provider disconnect not available - safe to ignore
+        }
     }, [disconnect]);
 
     return {

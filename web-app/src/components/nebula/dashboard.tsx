@@ -544,6 +544,13 @@ export function NebulaDashboard() {
                     {isWriting || isConfirming ? "Writing..." : "Write to Chain"}
                   </Button>
                 </div>
+
+                {error ? (
+                  <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-50">
+                    <p className="font-medium">Error</p>
+                    <p className="mt-1 text-xs text-rose-200">{error}</p>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 

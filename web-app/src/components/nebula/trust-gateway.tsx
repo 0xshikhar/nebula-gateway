@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { useAccount, useChainId, useSwitchChain, useWriteContract, useDisconnect, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useChainId, useSwitchChain, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
 import {
   ArrowRight,
   BadgeCheck,
@@ -80,7 +80,6 @@ export function TrustGateway() {
   const chainId = useChainId()
   const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
-  const { disconnect } = useDisconnect()
   const [form, setForm] = useState<TrustInput>(initialState)
   const [result, setResult] = useState<ResultState | null>(null)
   const [isLoading, setIsLoading] = useState(false)
