@@ -53,11 +53,15 @@ export class SemaphoreClient {
 
     group.addMember(params.identity.commitment)
 
+    const scopeHash = keccak256(stringToHex(scope))
+    const messageHash = keccak256(stringToHex(message))
+
     const proof = await generateProof(
       params.identity,
       group,
-      BigInt(keccak256(stringToHex(scope))),
-      BigInt(keccak256(stringToHex(message))),
+      messageHash,
+      scopeHash,
+      Math.max(16, group.depth),
     )
 
     const verified = await verifyProof(proof)
@@ -75,10 +79,13 @@ export class SemaphoreClient {
       nullifier,
       commitment: params.identity.commitment.toString(),
       root: group.root.toString(),
+      groupRoot: group.root.toString(),
+      groupDepth: group.depth,
       scope,
       message,
-      scopeHash: keccak256(stringToHex(scope)),
-      messageHash: keccak256(stringToHex(message)),
+      scopeHash,
+      messageHash,
+      identityCommitment: params.identity.commitment.toString(),
       semaphoreProof: proof as SemaphoreProofType,
     }
   }

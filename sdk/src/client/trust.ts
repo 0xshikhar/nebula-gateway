@@ -1,10 +1,20 @@
-import type { TrustInput, TrustResult, SDKConfig } from "../types/index.js"
+import type { SDKConfig, TrustAuditTrail, TrustInput, TrustResult, TrustScoreResult } from "../types/index.js"
 
-export class GatewayClient {
+export const DEFAULT_API_URL = "https://nebulaid-gateway.vercel.app"
+
+function normalizeInput(input: TrustInput): TrustInput {
+  return {
+    ...input,
+    proofLibrary: input.proofLibrary ?? "semaphore",
+    proofId: input.proofId ?? "",
+  }
+}
+
+export class TrustClient {
   private apiBaseUrl: string
 
   constructor(config: SDKConfig) {
-    this.apiBaseUrl = config.apiBaseUrl.replace(/\/$/, "")
+    this.apiBaseUrl = (config.apiBaseUrl ?? DEFAULT_API_URL).replace(/\/$/, "")
   }
 
   async verify(input: TrustInput): Promise<TrustResult> {
@@ -13,7 +23,7 @@ export class GatewayClient {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(input),
+      body: JSON.stringify(normalizeInput(input)),
     })
 
     if (!response.ok) {
@@ -24,22 +34,28 @@ export class GatewayClient {
     return response.json()
   }
 
-  async getTrustScore(wallet: string): Promise<{ score: number; band: number; isValid: boolean }> {
-    const response = await fetch(`${this.apiBaseUrl}/api/trust/score?wallet=${wallet}`)
+  async score(input: TrustInput): Promise<TrustScoreResult> {
+    const response = await fetch(`${this.apiBaseUrl}/api/trust/score`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(normalizeInput(input)),
+    })
 
     if (!response.ok) {
-      throw new Error(`Failed to get trust score: ${response.status}`)
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.message ?? `Trust scoring failed: ${response.status}`)
     }
 
     return response.json()
   }
 
-  async getAuditTrail(limit = 10): Promise<{
-    verificationEvents: unknown[]
-    auditEvents: unknown[]
-    proofEvents: unknown[]
-    policyVersions: unknown[]
-  }> {
+  async getTrustScore(input: TrustInput): Promise<TrustScoreResult> {
+    return this.score(input)
+  }
+
+  async getAuditTrail(limit = 10): Promise<TrustAuditTrail> {
     const response = await fetch(`${this.apiBaseUrl}/api/audit?limit=${limit}`)
 
     if (!response.ok) {
@@ -50,6 +66,12 @@ export class GatewayClient {
   }
 }
 
-export function createGatewayClient(config: SDKConfig): GatewayClient {
-  return new GatewayClient(config)
+export function createTrustClient(config: SDKConfig): TrustClient {
+  return new TrustClient({
+    ...config,
+    apiBaseUrl: config.apiBaseUrl ?? DEFAULT_API_URL,
+  })
 }
+
+export { TrustClient as GatewayClient }
+export { createTrustClient as createGatewayClient }
