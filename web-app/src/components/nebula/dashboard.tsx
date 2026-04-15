@@ -411,66 +411,34 @@ export function NebulaDashboard() {
 
   return (
     <div className="min-h-screen bg-[#050816] text-white">
-      <section className="border-b border-white/10">
-        <div className="mx-auto max-w-7xl px-4 py-16 md:py-20">
-          <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+      {/* Section 1: Policy Control Center */}
+      <section className="border-b border-white/10 bg-[#050816]">
+        <div className="mx-auto max-w-7xl px-4 py-12">
+          <div className="mb-8 flex items-center justify-between">
             <div>
-              <Badge className="rounded-full border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-emerald-100">
-                <Sparkles className="mr-2 h-3.5 w-3.5" />
-                Nebula dashboard
+              <Badge className="rounded-full border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-emerald-100">
+                <Sparkles className="mr-2 h-3 w-3" />
+                Policy Control Center
               </Badge>
-              <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight md:text-6xl">
-                Policy control, Semaphore proof generation, and HashKey Chain writes in one place.
-              </h1>
-              <p className="mt-6 max-w-2xl text-pretty text-base leading-8 text-slate-300 md:text-lg">
-                This page is for protocol operators. It previews the decision engine, generates a Semaphore proof,
-                and writes the decision to HashKey testnet when a contract address is configured.
-              </p>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button
-                  onClick={runSemaphoreProof}
-                  disabled={!address || isSwitchingChain || isGeneratingProof}
-                  className="rounded-full bg-white px-6 text-slate-950 hover:bg-emerald-100"
-                >
-                  {isSwitchingChain
-                    ? "Switching to HashKey..."
-                    : isGeneratingProof
-                      ? "Generating Semaphore proof..."
-                      : "Generate Semaphore proof"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={writeDecisionToChain}
-                  disabled={!result || !hasNebulaTrustGate || isWriting || isConfirming || isGeneratingProof}
-                  className="rounded-full border-white/15 bg-white/5 px-6 text-white hover:bg-white/10"
-                >
-                  {isWriting || isConfirming ? "Writing to chain..." : "Record decision on-chain"}
-                </Button>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-3 text-xs text-slate-300">
-                <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
-                  HashKey RPC: https://testnet-explorer.hsk.xyz
-                </Badge>
-                <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
-                  Explorer: Blockscout
-                </Badge>
-                <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
-                  Chain ID: {hashkeyTestnet.id}
-                </Badge>
-                <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
-                  Trust gateway: {hasNebulaTrustGate ? "configured" : "unset"}
-                </Badge>
-              </div>
+              <h1 className="mt-3 text-2xl font-semibold text-white">Configure and preview trust policies</h1>
             </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300 text-[10px]">
+                Chain: HashKey Testnet
+              </Badge>
+              <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300 text-[10px]">
+                {hasNebulaTrustGate ? "Gateway Ready" : "Gateway Unset"}
+              </Badge>
+            </div>
+          </div>
 
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left: Policy Controls */}
             <Card className="border-white/10 bg-white/[0.04] text-white">
               <CardHeader>
-                <CardTitle className="text-2xl">Current policy preview</CardTitle>
+                <CardTitle className="text-xl">Policy settings</CardTitle>
                 <CardDescription className="text-slate-300">
-                  Adjust the policy before sending a proof or chain write.
+                  Adjust protocol action, reputation band, and verification requirements.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -480,7 +448,7 @@ export function NebulaDashboard() {
                       <Label className="text-slate-300">Protocol action</Label>
                       <p className="mt-1 text-sm text-slate-400">{currentPreset.description}</p>
                     </div>
-                    <Badge className="rounded-full border-white/10 bg-white/10 text-white">{currentPreset.title}</Badge>
+                    <Badge className="rounded-full border-white/10 bg-white/10 text-white text-xs">{currentPreset.title}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {protocolPresets.map((preset) => (
@@ -488,7 +456,7 @@ export function NebulaDashboard() {
                         key={preset.key}
                         variant={state.protocol === preset.key ? "default" : "outline"}
                         className={cn(
-                          "rounded-2xl",
+                          "rounded-xl text-sm",
                           state.protocol === preset.key
                             ? "bg-white text-slate-950 hover:bg-slate-100"
                             : "border-white/10 bg-white/5 text-white hover:bg-white/10",
@@ -528,8 +496,8 @@ export function NebulaDashboard() {
                     const checked = Boolean(state[item.key as keyof TrustInput])
 
                     return (
-                      <div key={item.key} className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                        <div className="flex items-center gap-3">
+                      <div key={item.key} className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3">
+                        <div className="flex items-center gap-2">
                           <Icon className="h-4 w-4 text-emerald-200" />
                           <Label className="text-sm text-slate-200">{item.label}</Label>
                         </div>
@@ -545,85 +513,119 @@ export function NebulaDashboard() {
                 <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                   <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Policy notes</p>
                   <Textarea
-                    className="mt-3 min-h-28 border-white/10 bg-slate-950/80 text-white"
+                    className="mt-3 min-h-20 border-white/10 bg-slate-950/80 text-white"
                     value={policyNotes}
                     onChange={(event) => setPolicyNotes(event.target.value)}
                   />
                 </div>
 
-                <Separator className="bg-white/10" />
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button
+                    onClick={runSemaphoreProof}
+                    disabled={!address || isSwitchingChain || isGeneratingProof}
+                    className="rounded-full bg-white px-4 text-sm text-slate-950 hover:bg-emerald-100"
+                  >
+                    {isSwitchingChain
+                      ? "Switching..."
+                      : isGeneratingProof
+                        ? "Generating..."
+                        : "Generate Proof"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={writeDecisionToChain}
+                    disabled={!result || !hasNebulaTrustGate || isWriting || isConfirming || isGeneratingProof}
+                    className="rounded-full border-white/15 bg-white/5 px-4 text-sm text-white hover:bg-white/10"
+                  >
+                    {isWriting || isConfirming ? "Writing..." : "Write to Chain"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                  <div className="flex items-center justify-between">
+            {/* Right: Live Preview */}
+            <Card className="border-white/10 bg-white/[0.04] text-white">
+              <CardHeader>
+                <CardTitle className="text-xl">Live preview</CardTitle>
+                <CardDescription className="text-slate-300">
+                  Real-time decision evaluation based on current policy settings.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className={cn("rounded-2xl border p-4", decisionStyles[preview.decision])}>
+                  <div className="flex items-center gap-3">
+                    {preview.decision === "allow" ? (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-200" />
+                    ) : preview.decision === "review" ? (
+                      <Clock3 className="h-5 w-5 text-amber-200" />
+                    ) : (
+                      <CircleDashed className="h-5 w-5 text-rose-200" />
+                    )}
                     <div>
-                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Preview decision</p>
-                      <h3 className="mt-1 text-2xl font-semibold capitalize">{preview.decision}</h3>
+                      <p className="text-xs uppercase tracking-[0.24em] opacity-75">Decision</p>
+                      <h3 className="text-2xl font-semibold capitalize">{preview.decision}</h3>
                     </div>
-                    <Badge className="rounded-full border-white/10 bg-white/10 text-white">{preview.bandLabel}</Badge>
+                    <Badge className="ml-auto rounded-full border-white/10 bg-white/10 text-white text-xs">
+                      {preview.bandLabel}
+                    </Badge>
                   </div>
-                  <p className="mt-3 text-sm text-slate-300">{preview.summary}</p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Policy</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{preview.policy.title}</p>
-                      <p className="mt-2 text-xs text-slate-300">ID: {preview.policy.id}</p>
-                      <p className="mt-1 text-xs text-slate-300">Version: {preview.policyVersion}</p>
-                      <p className="mt-1 text-xs text-slate-300">Min score: {preview.policy.minTrustScore}</p>
-                      <p className="mt-1 text-xs text-slate-300">Min band: {preview.policy.minBand}</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Signal score</p>
-                      <p className="mt-2 text-3xl font-semibold text-white">{preview.signalBreakdown.trustScore}</p>
-                      <p className="mt-1 text-xs text-slate-300">
-                        Review threshold: {preview.policy.reviewThreshold}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-300">
-                        Human proof: {preview.policy.requireHuman ? "required" : "optional"}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-300">
-                        Credential: {preview.policy.requireCredential ? "required" : "optional"}
-                      </p>
-                    </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Trust score</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{preview.signalBreakdown.trustScore}</p>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Signal breakdown</p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {preview.signalBreakdown.contributions.map((item) => (
-                        <div key={item.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-300">{item.label}</span>
-                            <Badge variant="outline" className="border-white/10 bg-white/5 text-[10px] text-slate-200">
-                              {item.enabled ? "on" : "off"}
-                            </Badge>
-                          </div>
-                          <p className="mt-2 text-sm font-semibold text-white">{item.contribution} / {item.weight}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid gap-2">
-                      {preview.signalBreakdown.conditions.map((condition) => (
-                        <div
-                          key={condition.key}
-                          className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
-                        >
-                          <div>
-                            <p className="text-xs text-slate-300">{condition.label}</p>
-                            <p className="mt-0.5 text-[11px] text-slate-500">{condition.reason}</p>
-                          </div>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "border-white/10",
-                              condition.passed
-                                ? "bg-emerald-400/10 text-emerald-100"
-                                : "bg-rose-400/10 text-rose-100",
-                            )}
-                          >
-                            {condition.passed ? "pass" : "block"}
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Policy</p>
+                    <p className="mt-2 text-sm font-semibold text-white">{preview.policy.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">v{preview.policyVersion}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Signal contributions</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {preview.signalBreakdown.contributions.map((item) => (
+                      <div key={item.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-slate-300">{item.label}</span>
+                          <Badge variant="outline" className="border-white/10 bg-white/5 text-[10px] text-slate-200">
+                            {item.enabled ? "on" : "off"}
                           </Badge>
                         </div>
-                      ))}
-                    </div>
+                        <p className="mt-1 text-sm font-semibold text-white">{item.contribution} / {item.weight}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Conditions</p>
+                  <div className="mt-3 space-y-2">
+                    {preview.signalBreakdown.conditions.map((condition) => (
+                      <div
+                        key={condition.key}
+                        className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-xs text-slate-300">{condition.label}</p>
+                          <p className="mt-0.5 text-[10px] text-slate-500">{condition.reason}</p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "border-white/10 text-[10px]",
+                            condition.passed
+                              ? "bg-emerald-400/10 text-emerald-100"
+                              : "bg-rose-400/10 text-rose-100",
+                          )}
+                        >
+                          {condition.passed ? "pass" : "block"}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </CardContent>
@@ -632,15 +634,26 @@ export function NebulaDashboard() {
         </div>
       </section>
 
+      {/* Section 2: Chain Integration */}
       <section className="border-y border-white/10 bg-[#08101f]">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-16 md:grid-cols-2">
-          <Card className="border-white/10 bg-white/[0.04] text-white">
-            <CardHeader>
-              <CardTitle className="text-2xl">Chain state</CardTitle>
-              <CardDescription className="text-slate-300">
-                Live reads from the Nebula trust gate contract on HashKey testnet.
-              </CardDescription>
-            </CardHeader>
+        <div className="mx-auto max-w-7xl px-4 py-12">
+          <div className="mb-8">
+            <Badge className="rounded-full border-blue-400/20 bg-blue-400/10 px-3 py-1 text-blue-100">
+              <Code2 className="mr-2 h-3 w-3" />
+              Chain Integration
+            </Badge>
+            <h2 className="mt-3 text-2xl font-semibold text-white">On-chain state and proof results</h2>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left: Chain State */}
+            <Card className="border-white/10 bg-white/[0.04] text-white">
+              <CardHeader>
+                <CardTitle className="text-xl">Contract state</CardTitle>
+                <CardDescription className="text-slate-300">
+                  Live reads from the Nebula trust gate contract.
+                </CardDescription>
+              </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Gateway contract address</p>
@@ -743,11 +756,12 @@ export function NebulaDashboard() {
             </CardContent>
           </Card>
 
+          {/* Right: Proof Results */}
           <Card className="border-white/10 bg-white/[0.04] text-white">
             <CardHeader>
-              <CardTitle className="text-2xl">Proof and decision payload</CardTitle>
+              <CardTitle className="text-xl">Proof results</CardTitle>
               <CardDescription className="text-slate-300">
-                The dashboard produces a Semaphore proof, evaluates it, and prepares a write payload.
+                Semaphore proof output and on-chain write payload.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -764,22 +778,22 @@ export function NebulaDashboard() {
                       )}
                       <div>
                         <p className="text-xs uppercase tracking-[0.24em] opacity-75">Decision</p>
-                        <h3 className="text-3xl font-semibold capitalize">{result.decision}</h3>
+                        <h3 className="text-2xl font-semibold capitalize">{result.decision}</h3>
                       </div>
-                      <Badge className="ml-auto rounded-full border-white/10 bg-white/10 text-white">
+                      <Badge className="ml-auto rounded-full border-white/10 bg-white/10 text-white text-xs">
                         {result.bandLabel}
                       </Badge>
                     </div>
+                  </div>
 
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                        <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Trust score</p>
-                        <p className="mt-2 text-3xl font-semibold">{result.trustScore}</p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                        <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Policy</p>
-                        <p className="mt-2 font-mono text-sm">{result.policyVersion}</p>
-                      </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Trust score</p>
+                      <p className="mt-2 text-2xl font-semibold">{result.trustScore}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Policy</p>
+                      <p className="mt-2 font-mono text-sm">{result.policyVersion}</p>
                     </div>
                   </div>
 
@@ -796,29 +810,8 @@ export function NebulaDashboard() {
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Semaphore proof payload</p>
-                    <div className="mt-3 space-y-2 text-xs text-slate-300">
-                      <p>proofId: {result.proofId}</p>
-                      <p>wallet: {result.wallet}</p>
-                      <p>verifiedAt: {result.verifiedAt}</p>
-                      <p>proofLibrary: {result.proofLibrary}</p>
-                      {proofMeta ? (
-                        <>
-                          <p>semaphoreNullifier: {proofMeta.proofId}</p>
-                          <p>issuedAt: {proofMeta.issuedAt}</p>
-                        </>
-                      ) : null}
-                    </div>
-                    <Separator className="my-4 bg-white/10" />
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Proof message</p>
-                    <pre className="mt-3 max-h-40 overflow-auto rounded-2xl bg-black/30 p-4 text-[11px] text-slate-200">
-{browserProofMessage || "Generate a Semaphore proof to inspect the scope and message."}
-                    </pre>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Write payload</p>
-                    <pre className="mt-3 overflow-auto rounded-2xl bg-black/30 p-4 text-[11px] text-slate-200">
+                    <pre className="mt-3 overflow-auto rounded-2xl bg-black/30 p-3 text-[10px] text-slate-200">
 {JSON.stringify(
   {
     wallet: result.wallet,
@@ -838,9 +831,9 @@ export function NebulaDashboard() {
                       <p className="text-xs uppercase tracking-[0.24em] text-emerald-200">On-chain registration</p>
                       <div className="mt-2 space-y-2">
                         {isNullifierConfirming ? (
-                          <p className="text-xs text-emerald-200">Writing nullifier transaction to HashKey testnet...</p>
+                          <p className="text-xs text-emerald-200">Writing nullifier to HashKey testnet...</p>
                         ) : null}
-                        {isNullifierConfirmed ? <p className="text-xs text-emerald-200">Transaction confirmed on-chain.</p> : null}
+                        {isNullifierConfirmed ? <p className="text-xs text-emerald-200">Transaction confirmed.</p> : null}
                         {nullifierTxHash ? (
                           <a
                             href={`${EXPLORER_BASE_URL}/tx/${nullifierTxHash}`}
@@ -848,7 +841,7 @@ export function NebulaDashboard() {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-xs text-emerald-200 hover:underline"
                           >
-                            View nullifier transaction on Blockscout ↗
+                            View on Blockscout ↗
                           </a>
                         ) : null}
                       </div>
@@ -857,14 +850,16 @@ export function NebulaDashboard() {
                 </>
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/60 p-6 text-sm text-slate-400">
-                  Generate a Semaphore proof to see the policy evaluation and on-chain payload.
+                  Generate a Semaphore proof to see results and on-chain payload.
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
-      </section>
+      </div>
+    </section>
 
+      {/* Section 3: Audit Trail */}
       <section className="border-t border-white/10 bg-[#050816]">
         <div className="mx-auto max-w-7xl px-4 py-16">
           <div className="mb-6 flex items-center justify-between gap-4">
