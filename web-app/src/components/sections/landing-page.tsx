@@ -246,7 +246,8 @@ export default function LandingPage() {
               className="space-y-5"
             >
               <h1 className="max-w-lg text-balance text-4xl font-semibold tracking-[-0.05em] text-white md:text-5xl lg:text-6xl">
-                Verify humans, not wallets.
+                Verify humans,
+                <br /> not wallets.not bots.
               </h1>
               <p className="max-w-md text-pretty text-base leading-7 text-slate-300/80 md:text-lg">
                 The trust infrastructure HashKey Chain needs. Zero-knowledge proof verification that lets protocols confirm humans without ever seeing wallet addresses.
