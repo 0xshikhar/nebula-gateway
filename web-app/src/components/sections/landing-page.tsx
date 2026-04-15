@@ -249,7 +249,7 @@ export default function LandingPage() {
                 Verify humans, not wallets.
               </h1>
               <p className="max-w-md text-pretty text-base leading-7 text-slate-300/80 md:text-lg">
-                The privacy-preserving trust layer for DeFi. One SDK install, one verification call, zero wallet addresses exposed.
+                The trust infrastructure HashKey Chain needs. Zero-knowledge proof verification that lets protocols confirm humans without ever seeing wallet addresses.
               </p>
             </motion.div>
 
@@ -378,8 +378,8 @@ export default function LandingPage() {
           <RevealSection>
             <SectionHeading
               eyebrow="The Problem"
-              title="Every DeFi protocol has a sybil problem."
-              description="Airdrops get farmed, vaults get drained, and reward programs get gamed. The solution cannot be KYC-only because the privacy tradeoff is too high."
+              title="HashKey protocols are flying blind on trust."
+              description="Airdrops see 70%+ bot claims. Vaults get drained by sybils with thousands of wallets. The ecosystem needs trust infrastructure—not more KYC surveillance."
             />
           </RevealSection>
 
@@ -413,18 +413,18 @@ export default function LandingPage() {
                   What Nebula Gateway adds
                 </Badge>
                 <h3 className="mt-5 text-3xl font-semibold tracking-[-0.04em] text-white">
-                  Privacy-preserving trust verification for DeFi.
+                  The trust infrastructure HashKey Chain needs.
                 </h3>
                 <p className="mt-4 max-w-xl text-sm leading-7 text-slate-200/80 md:text-base">
-                  Users prove eligibility with a Semaphore proof, protocols get a clear allow/review/deny
-                  decision, and the on-chain nullifier prevents replay without exposing identity.
+                  Zero identity leakage—protocols never see wallet addresses. Users prove humanity with
+                  Semaphore proofs. On-chain nullifiers stop replay attacks without exposing identity.
                 </p>
 
                 <div className="mt-8 grid gap-3">
                   {[
-                    "One SDK install",
-                    "One verification call",
-                    "One on-chain nullifier",
+                    "Zero wallet address exposure",
+                    "One SDK, one API call",
+                    "Built for HashKey Testnet",
                   ].map((item) => (
                     <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/85">
                       <CheckCircle2 className="h-4 w-4 text-emerald-300" />
@@ -443,8 +443,8 @@ export default function LandingPage() {
           <RevealSection>
             <SectionHeading
               eyebrow="Use Cases"
-              title="Built for the places where sybils actually hurt."
-              description="The same trust layer works across airdrops, vaults, rewards, and cohort-based access because the product speaks in policies, not wallets."
+              title="Built for HashKey DeFi where sybils hurt most."
+              description="Every protocol on HashKey Chain faces the same trust gap. Vaults, pools, airdrops, and rewards—all protected by one privacy-preserving infrastructure layer."
             />
           </RevealSection>
 
@@ -526,8 +526,8 @@ export default function LandingPage() {
           <RevealSection>
             <SectionHeading
               eyebrow="Features"
-              title="Designed like a product, not a slide deck."
-              description="Each feature card carries a concrete claim and supporting tags, so the page reads like a serious SDK landing page instead of generic startup copy."
+              title="Infrastructure that earns its place in every protocol stack."
+              description="Every feature is designed for production use on HashKey Chain—from zero-knowledge proof verification to on-chain nullifier registration."
             />
           </RevealSection>
 
@@ -579,12 +579,12 @@ export default function LandingPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.32em] text-emerald-100/60">Policy presets</p>
                   <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-white md:text-3xl">
-                    Built for common DeFi access patterns.
+                    Ready for HashKey DeFi protocols.
                   </h2>
                 </div>
                 <p className="max-w-xl text-sm leading-6 text-slate-300/70">
-                  Vaults, pools, airdrops, and rewards all want the same thing: trust signals without identity
-                  leakage.
+                  Vaults, pools, airdrops, and rewards on HashKey Chain—all using the same trust infrastructure
+                  without exposing user identities.
                 </p>
               </div>
 
@@ -616,13 +616,13 @@ export default function LandingPage() {
             <div className="relative overflow-hidden rounded-[36px] border border-emerald-400/20 bg-gradient-to-br from-emerald-400/10 via-white/[0.03] to-cyan-400/10 p-8 md:p-12">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.18),_transparent_60%)]" />
               <div className="relative text-center">
-                <p className="text-xs uppercase tracking-[0.32em] text-emerald-100/60">CTA</p>
+                <p className="text-xs uppercase tracking-[0.32em] text-emerald-100/60">Ready for HashKey</p>
                 <h2 className="mt-4 text-balance text-3xl font-semibold tracking-[-0.05em] text-white md:text-5xl">
-                  Ship privacy-preserving trust in ten minutes.
+                  Deploy trust infrastructure in ten minutes.
                 </h2>
                 <p className="mx-auto mt-4 max-w-2xl text-pretty text-base leading-7 text-slate-300/78 md:text-lg">
-                  Install the SDK, call verify, and register the nullifier. That is the integration story the page
-                  should make obvious.
+                  Install the SDK, verify with zero-knowledge proofs, and register nullifiers on HashKey Testnet.
+                  The infrastructure your protocol needs is one npm install away.
                 </p>
 
                 <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -657,15 +657,20 @@ export default function LandingPage() {
 
       <footer className="relative z-10 border-t border-white/5 px-4 py-10">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10">
-              <Hexagon className="h-5 w-5 text-emerald-200" />
+          <Link href="/" className="flex items-center gap-3">
+            <div className="relative h-10 w-10 overflow-hidden rounded-xl">
+              <Image
+                src="/logo.png"
+                alt="Nebula Gateway"
+                fill
+                className="object-cover"
+              />
             </div>
             <div>
               <p className="text-sm font-semibold text-white">Nebula Gateway</p>
               <p className="text-xs uppercase tracking-[0.18em] text-white/40">HashKey Chain</p>
             </div>
-          </div>
+          </Link>
 
           <div className="flex items-center gap-4 text-sm text-white/55">
             <a href="#use-cases" className="transition-colors hover:text-white">

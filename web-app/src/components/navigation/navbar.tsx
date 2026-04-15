@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 
-import { ArrowRight, Hexagon } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
@@ -28,9 +29,14 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-        <Link href="/" className="flex items-center gap-3 text-white">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10">
-            <Hexagon className="h-5 w-5 text-emerald-200" />
+        <Link href="/" className="flex items-center gap-3">
+          <div className="relative h-10 w-10 overflow-hidden rounded-xl">
+            <Image
+              src="/logo.png"
+              alt="Nebula Gateway"
+              fill
+              className="object-cover"
+            />
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.26em] text-white/45">NebulaID</p>
